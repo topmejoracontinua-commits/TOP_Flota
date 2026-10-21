@@ -217,7 +217,7 @@ td.r, th.r { text-align: right; }
 .diagram svg { width: 100%; height: auto; display: block; max-width: 100%; }
 .tirebtn { cursor: pointer; }
 .tirebtn rect.t { stroke: var(--tire); stroke-width: 2.5; }
-.tirebtn rect.vac { fill: none; stroke: var(--ink-3); stroke-dasharray: 4 3; stroke-width: 2; }
+.tirebtn rect.vac { fill: var(--road); stroke: var(--ink-3); stroke-dasharray: 4 3; stroke-width: 2; }
 .tirebtn:focus-visible { outline: none; }
 .tirebtn:focus-visible rect.t { stroke: var(--ink); stroke-width: 5; }
 .tirebtn:hover rect.t { stroke-width: 4; }
@@ -253,7 +253,7 @@ td.r, th.r { text-align: right; }
 /* selector de posiciones en Nueva venta */
 .pick-grid { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 22px; align-items: start; margin-top: 10px; }
 @media (max-width: 820px) { .pick-grid { grid-template-columns: minmax(0, 1fr); } }
-.tirebtn.pick rect.t { fill: var(--surface); fill-opacity: .6; stroke: var(--ink-3); stroke-width: 2; stroke-dasharray: 4 3; transition: fill .12s; }
+.tirebtn.pick rect.t { fill: var(--surface); stroke: var(--ink-3); stroke-width: 2; stroke-dasharray: 4 3; transition: fill .12s; }
 .tirebtn.pick.on rect.t { fill: var(--accent); fill-opacity: 1; stroke: var(--tire); stroke-dasharray: none; stroke-width: 2.5; }
 .tirebtn.pick:hover rect.t { stroke: var(--accent); stroke-width: 3; }
 .tirebtn.pick:focus-visible rect.t { stroke: var(--ink); stroke-width: 4; }
@@ -287,6 +287,20 @@ td.r, th.r { text-align: right; }
 .lp-foot { text-align: center; color: #55555d; font-size: 12px; margin: 22px 0 0; letter-spacing: .04em; }
 .field label input[type=checkbox] { width: 18px; height: 18px; padding: 0; margin: 0 8px 0 0; vertical-align: -4px; accent-color: var(--accent); }
 .field label:has(input[type=checkbox]) { display: flex; align-items: center; cursor: pointer; }
+
+/* stock y autogestion */
+.pick-grid.rev { grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+@media (max-width: 820px) { .pick-grid.rev { grid-template-columns: minmax(0, 1fr); } .pick-grid.rev > :last-child { order: -1; } }
+.tirebtn.pv { cursor: default; }
+.tid { display: inline-block; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; font-weight: 500; font-size: 12.5px; white-space: nowrap; }
+details.addstock { margin-bottom: 20px; }
+details.addstock > summary { cursor: pointer; font-weight: 650; list-style: none; color: var(--accent); }
+details.addstock > summary::-webkit-details-marker { display: none; }
+details.addstock[open] > summary { margin-bottom: 0; }
+details.more { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+details.more > summary { cursor: pointer; color: var(--ink-2); font-weight: 600; font-size: 14px; }
+.field textarea { resize: vertical; font-size: 14px; }
+@media (max-width: 720px) { .head .btn.desk { display: none; } .stats .stat:nth-child(odd):last-child { grid-column: 1 / -1; } .stats .stat:last-child { grid-column: auto; } }
 
 </style>
 </head>
@@ -349,8 +363,17 @@ const codesOf = config => axles(config).flatMap(a => a.tires.map(t => t.c));
 const S = {
   user: null, role: null, isAdmin: false, empresas: [], empId: null, members: [], access: [],
   d: { clientes: [], vehiculos: [], posiciones: [], cubiertas: [], instalaciones: [], inspecciones: [], eventos: [], invitaciones: [] },
-  ix: {}, tab: 'flota', vehId: null, code: null, q: '', cli: '', trab: '', msg: '', busy: false
+  ix: {}, tab: 'flota', vehId: null, code: null, q: '', cli: '', trab: '', sq: '', sest: '', scli: '', xq: '', xmot: '', xcli: '', recapId: null, delArm: null, msg: '', busy: false
 };
+const isStaff = () => S.role === 'staff';
+const fmtId = c => (c.numero !== null && c.numero !== undefined ? 'TF-' + String(c.numero).padStart(5, '0') : (c.qr_codigo || '').slice(0, 6).toUpperCase());
+function lastDepth(c) {
+  const l = (S.ix.inspByCub && S.ix.inspByCub[c.id]) || [], x = [...l].reverse().find(i => i.profundidad_mm !== null && i.profundidad_mm !== undefined);
+  const rec = S.d.eventos.filter(e => e.cubierta_id === c.id && e.tipo === 'recapado').sort((a, b) => ((a.creado_en || a.fecha) < (b.creado_en || b.fecha) ? 1 : -1))[0];
+  // si volvió de un recapado después de la última medición, vale el dibujo recapado
+  if (rec && (!x || (rec.creado_en || rec.fecha) > (x.creado_en || x.fecha))) return Number(c.profundidad_original_mm);
+  return x ? Number(x.profundidad_mm) : Number(c.profundidad_original_mm);
+}
 const empresa = () => S.empresas.find(e => e.id === S.empId) || {};
 
 async function fetchAll(table) {
@@ -372,7 +395,7 @@ async function loadData() {
   buildIndex();
 }
 function buildIndex() {
-  const ix = { cli: {}, veh: {}, pos: {}, cub: {}, inst: {}, posByVeh: {}, activeByVeh: {}, activeByCub: {}, instByCub: {}, inspByInst: {}, vehByCli: {} };
+  const ix = { cli: {}, veh: {}, pos: {}, cub: {}, inst: {}, posByVeh: {}, activeByVeh: {}, activeByCub: {}, instByCub: {}, inspByInst: {}, vehByCli: {}, inspByCub: {} };
   S.d.clientes.forEach(c => { ix.cli[c.id] = c; });
   S.d.vehiculos.forEach(v => { ix.veh[v.id] = v; (ix.vehByCli[v.cliente_id] = ix.vehByCli[v.cliente_id] || []).push(v); });
   S.d.posiciones.forEach(p => { ix.pos[p.id] = p; (ix.posByVeh[p.vehiculo_id] = ix.posByVeh[p.vehiculo_id] || {})[p.codigo] = p; });
@@ -385,7 +408,8 @@ function buildIndex() {
       ix.activeByCub[i.cubierta_id] = i;
     }
   });
-  S.d.inspecciones.forEach(x => { (ix.inspByInst[x.instalacion_id] = ix.inspByInst[x.instalacion_id] || []).push(x); });
+  S.d.inspecciones.forEach(x => { (ix.inspByInst[x.instalacion_id] = ix.inspByInst[x.instalacion_id] || []).push(x); (ix.inspByCub[x.cubierta_id] = ix.inspByCub[x.cubierta_id] || []).push(x); });
+  Object.values(ix.inspByCub).forEach(l => l.sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.creado_en || '') < (b.creado_en || '') ? -1 : 1)));
   Object.values(ix.inspByInst).forEach(l => l.sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.creado_en || '') < (b.creado_en || '') ? -1 : 1)));
   S.ix = ix;
 }
@@ -402,8 +426,9 @@ function info(inst) {
   const depth = last ? (num(last.profundidad_mm) ?? orig) : orig;
   const recorridos = Math.max(0, v.km_actual - inst.km_vehiculo_instalacion);
   let rate = null, kmLeft = null;
-  if (last && last.km_vehiculo > inst.km_vehiculo_instalacion && orig > depth) {
-    rate = (orig - depth) / (last.km_vehiculo - inst.km_vehiculo_instalacion) * 1000;
+  const first = list[0], d0 = first && num(first.profundidad_mm) !== null ? Number(first.profundidad_mm) : orig, km0 = first ? first.km_vehiculo : inst.km_vehiculo_instalacion;
+  if (last && last.km_vehiculo > km0 && d0 > depth) {
+    rate = (d0 - depth) / (last.km_vehiculo - km0) * 1000;
     kmLeft = Math.max(0, Math.round((depth - min) / rate * 1000));
   }
   const vencida = !last || daysSince(last.fecha) > (e.inspeccion_cada_dias ?? 30) || (v.km_actual - last.km_vehiculo) > (e.inspeccion_cada_km ?? 10000);
@@ -417,6 +442,12 @@ function info(inst) {
 const infoOfVeh = v => (S.ix.activeByVeh[v.id] || []).map(info);
 function kmTotal(c) {
   return (S.ix.instByCub[c.id] || []).reduce((s, i) => s + Math.max(0, (i.km_vehiculo_retiro ?? S.ix.veh[i.vehiculo_id].km_actual) - i.km_vehiculo_instalacion), 0);
+}
+/* costo de la cubierta: compra + recapados (en la misma moneda) */
+function costoTotal(c) {
+  if (c.precio_venta === null || c.precio_venta === undefined || c.precio_venta === '') return null;
+  const mon = c.moneda || 'USD';
+  return Number(c.precio_venta) + S.d.eventos.filter(e => e.cubierta_id === c.id && e.tipo === 'recapado' && e.costo && (e.moneda || mon) === mon).reduce((s, e) => s + Number(e.costo), 0);
 }
 function alertList() {
   const out = [];
@@ -537,14 +568,13 @@ sb.auth.onAuthStateChange(evt => { if (evt === 'SIGNED_OUT' && S.user) setTimeou
 const plate = (p, sm) => `<span class="plate${sm ? ' sm' : ''}"><i>ARGENTINA</i><b>${esc(p)}</b></span>`;
 const pill = st => `<span class="pill ${ST[st][0]}">${ST[st][1]}</span>`;
 const FILL = { ok: '--ok', warn: '--warn', bad: '--bad' };
-const ro = () => S.role !== 'staff';
 
 /* ---------- Flota ---------- */
 function vehRows() {
   const q = S.q.replace(/\s/g, '').toUpperCase();
   const rows = S.d.vehiculos.filter(v => (!S.cli || v.cliente_id === S.cli) && (!q || v.patente.replace(/\s/g, '').toUpperCase().includes(q) || (S.ix.cli[v.cliente_id]?.razon_social || '').toUpperCase().includes(q)))
     .sort((a, b) => a.patente.localeCompare(b.patente));
-  if (!rows.length) return `<tr><td colspan="7" class="empty">${S.d.vehiculos.length ? 'No hay vehículos con ese filtro.' : (ro() ? 'Todavía no hay vehículos cargados.' : 'Todavía no hay vehículos. Cargá la primera venta en la pestaña Nueva venta.')}</td></tr>`;
+  if (!rows.length) return `<tr><td colspan="7" class="empty">${S.d.vehiculos.length ? 'No hay vehículos con ese filtro.' : (!isStaff() ? 'Todavía no hay vehículos cargados.' : 'Todavía no hay vehículos. Cargá la primera venta en la pestaña Nueva venta.')}</td></tr>`;
   return rows.map(v => {
     const inf = infoOfVeh(v), w = worst(inf), tot = codesOf(v.configuracion).length;
     const nMon = inf.filter(i => i.code !== 'AUX').length, left = inf.map(i => i.kmLeft).filter(k => k !== null), venc = inf.filter(i => i.vencida).length;
@@ -562,11 +592,13 @@ function viewFlota() {
   if (S.vehId) return viewVehiculo();
   const infos = S.d.instalaciones.filter(i => !i.fecha_retiro).map(info);
   const nBad = infos.filter(i => i.st === 'bad').length, nWarn = infos.filter(i => i.st === 'warn').length, nVenc = infos.filter(i => i.vencida).length;
-  const head = `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>${ro() ? 'Tu flota' : 'Flotas de tus clientes'}</h1></div>${ro() || !S.d.vehiculos.length ? '' : '<button class="btn primary" data-tab="venta">+ Nueva venta</button>'}</div>`;
+  const head = `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>${isStaff() ? 'Flotas de tus clientes' : 'Tu flota'}</h1></div>${!S.d.vehiculos.length ? '' : isStaff() ? '<button class="btn primary desk" data-tab="venta">+ Nueva venta</button>' : '<button class="btn primary" data-tab="addveh">+ Agregar vehículo</button>'}</div>`;
   if (!S.d.vehiculos.length) {
     const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON.flota + '</svg>';
-    return head + (ro()
-      ? `<div class="panel blank"><div class="ic">${icon}</div><h2>Todavía no hay vehículos</h2><p>Cuando ${esc(empresa().nombre)} cargue tus cubiertas, vas a ver acá el estado de cada una.</p></div>`
+    return head + (!isStaff()
+      ? `<div class="panel blank"><div class="ic">${icon}</div><h2>Armemos tu flota</h2><p>Ingresá al stock las cubiertas que compraste y asignalas a tus vehículos. Cada una queda con su ID y su historial.</p>
+        <div class="row" style="justify-content:center"><button class="btn primary large" data-tab="stock">Ingresar cubiertas al stock</button><button class="btn large" data-tab="addveh">Agregar un vehículo</button></div>
+        <ol class="steps"><li>Ingresá las cubiertas al stock: cada una recibe un ID</li><li>Agregá tus vehículos con su patente y ejes</li><li>Montá cada cubierta en su posición y controlá el desgaste</li></ol></div>`
       : `<div class="panel blank"><div class="ic">${icon}</div><h2>Empecemos con la primera flota</h2><p>Cargá una venta y cada cubierta queda en seguimiento: posición, desgaste, presión e historial.</p>
         <button class="btn primary large" data-tab="venta">Cargar primera venta</button>
         <ol class="steps"><li>Elegí o creá el cliente</li><li>Cargá la patente y el esquema de ejes</li><li>Marcá las posiciones y la cubierta vendida</li></ol></div>`);
@@ -576,12 +608,13 @@ function viewFlota() {
     <div class="stats">
       <div class="stat"><span class="label">Vehículos</span><b>${S.d.vehiculos.length}</b></div>
       <div class="stat"><span class="label">Cubiertas montadas</span><b>${infos.length}</b></div>
+      <div class="stat"><span class="label">En stock</span><b>${S.d.cubiertas.filter(c => c.estado === 'stock').length}</b></div>
       <div class="stat bad${z(nBad)}"><span class="label">Para recambiar</span><b>${nBad}</b></div>
       <div class="stat warn${z(nWarn)}"><span class="label">Recambio próximo</span><b>${nWarn}</b></div>
       <div class="stat warn${z(nVenc)}"><span class="label">Sin inspeccionar</span><b>${nVenc}</b></div></div>
     <div class="panel">
       <div class="form" style="margin-bottom:12px">
-        <div class="field"><label for="q">Buscar patente${ro() ? '' : ' o cliente'}</label><input id="q" value="${esc(S.q)}" placeholder="AB 123 CD" autocomplete="off"></div>
+        <div class="field"><label for="q">Buscar patente${isStaff() ? ' o cliente' : ''}</label><input id="q" value="${esc(S.q)}" placeholder="AB 123 CD" autocomplete="off"></div>
         ${S.d.clientes.length > 1 ? `<div class="field"><label for="clif">Cliente</label><select id="clif"><option value="">Todos</option>${S.d.clientes.map(c => `<option value="${c.id}"${S.cli === c.id ? ' selected' : ''}>${esc(c.razon_social)}</option>`).join('')}</select></div>` : ''}
       </div>
       <div class="tablewrap"><table class="cards"><thead><tr><th>Patente</th><th>Cliente</th><th>Vehículo</th><th class="r">Km</th><th class="r">Cubiertas</th><th>Estado</th><th class="r">Recambio en</th></tr></thead>
@@ -647,6 +680,7 @@ function openVeh(id) {
 }
 
 /* ---------- Panel de cubierta ---------- */
+const EVT = { recapado: 'Recapado', rotacion: 'Rotación', reparacion: 'Reparación', alineacion: 'Alineación', balanceo: 'Balanceo', reclamo_garantia: 'Reclamo de garantía', baja: 'Baja' };
 function timeline(c) {
   const ev = [];
   (S.ix.instByCub[c.id] || []).forEach(i => {
@@ -655,7 +689,7 @@ function timeline(c) {
     (S.ix.inspByInst[i.id] || []).forEach(x => ev.push({ f: x.fecha, k: x.km_vehiculo, cls: 'i', h: `Inspección: ${x.profundidad_mm !== null ? mm(x.profundidad_mm) + ' mm' : 'sin medida'}${x.presion_psi !== null ? ' · ' + Number(x.presion_psi) + ' psi' : ''}`, d: `${fmt(x.km_vehiculo)} km del vehículo${x.observaciones ? ' · ' + esc(x.observaciones) : ''}` }));
     if (i.fecha_retiro) ev.push({ f: i.fecha_retiro, k: i.km_vehiculo_retiro ?? 0, cls: 'e', h: `Retirada (${motivoLabel(i.motivo_retiro).toLowerCase()})`, d: `${fmt(i.km_vehiculo_retiro ?? 0)} km del vehículo` });
   });
-  S.d.eventos.filter(e => e.cubierta_id === c.id).forEach(e => ev.push({ f: e.fecha, k: 0, cls: 'e', h: e.tipo.replace('_', ' '), d: esc(e.detalle || '') }));
+  S.d.eventos.filter(e => e.cubierta_id === c.id).forEach(e => ev.push({ f: e.fecha, k: 0, cls: 'e', h: EVT[e.tipo] || e.tipo.replace('_', ' '), d: esc(e.detalle || '') }));
   ev.sort((a, b) => (a.f < b.f ? 1 : a.f > b.f ? -1 : b.k - a.k));
   return `<ul class="timeline">${ev.map(e => `<li class="${e.cls}"><div><b>${esc(e.h)}</b></div><div class="when">${fdate(e.f)}${e.d ? ' · ' + e.d : ''}</div></li>`).join('')}</ul>`;
 }
@@ -664,10 +698,18 @@ function dl(id, arr) { return `<datalist id="${id}">${arr.map(x => `<option valu
 function tirePanel(v) {
   const code = S.code, label = code === 'AUX' ? 'Auxilio' : 'Posición ' + code, inst = activeAt(v, code);
   if (!inst) {
-    if (ro()) return `<div class="panel"><div class="label">${label}</div><h2 style="font-size:26px">Sin cubierta montada</h2></div>`;
+    const stock = S.d.cubiertas.filter(c => c.estado === 'stock' && c.cliente_id === v.cliente_id).sort((x, y) => (x.numero || 0) - (y.numero || 0));
+    const fromStock = stock.length ? `<form data-form="mountstock" class="form" style="margin-top:12px">
+        <div class="field wide"><label for="ms-c">Cubierta del stock</label><select id="ms-c">${stock.map(c => `<option value="${c.id}" data-d="${lastDepth(c)}">${fmtId(c)} · ${esc(c.marca)} ${esc(c.modelo || '')} · ${esc(c.medida)}${c.serie ? ' · ' + esc(c.serie) : ''}</option>`).join('')}</select></div>
+        <div class="field"><label for="ms-prof">Profundidad actual (mm)</label><input id="ms-prof" inputmode="decimal" value="${mm(lastDepth(stock[0]))}" required></div>
+        <div class="field"><label for="ms-km">Km del vehículo</label><input id="ms-km" type="number" inputmode="numeric" value="${v.km_actual}" required></div>
+        <div class="field"><label for="ms-psi">Presión (psi)</label><input id="ms-psi" type="number" inputmode="numeric" value="100"></div>
+        <div class="field wide"><button class="btn primary" type="submit">Montar en ${code}</button></div></form>`
+      : `<p class="muted" style="margin-top:12px">No tenés cubiertas en el stock. <button class="linkbtn" data-tab="stock">Ingresalas al stock</button> o cargá una nueva acá abajo.</p>`;
     return `<div class="panel"><div class="label">${label}</div><h2 style="font-size:26px">Sin cubierta montada</h2>
-      <p class="muted">Cargá la cubierta que se instala acá y queda con su historial desde hoy.</p>
-      <form data-form="mount" class="form">
+      <p class="muted" style="margin-bottom:0">Elegí una cubierta de tu stock para montarla en esta posición.</p>${fromStock}
+      <details class="more"${stock.length ? '' : ' open'}><summary>Cargar una cubierta nueva que no está en el stock</summary>
+      <form data-form="mount" class="form" style="margin-top:12px">
         <div class="field"><label for="m-marca">Marca</label><input id="m-marca" list="dl-marca" required autocomplete="off"></div>
         <div class="field"><label for="m-modelo">Modelo</label><input id="m-modelo" list="dl-modelo" autocomplete="off"></div>
         <div class="field"><label for="m-medida">Medida</label><input id="m-medida" list="dl-medida" placeholder="295/80 R22.5" required autocomplete="off"></div>
@@ -677,13 +719,14 @@ function tirePanel(v) {
         <div class="field"><label for="m-km">Km del vehículo</label><input id="m-km" type="number" inputmode="numeric" value="${v.km_actual}" required></div>
         <div class="field"><label for="m-psi">Presión (psi)</label><input id="m-psi" type="number" inputmode="numeric" value="100"></div>
         <div class="field wide"><button class="btn primary" type="submit">Montar en ${code}</button></div></form>
+      </details>
       ${dl('dl-marca', uniq('marca'))}${dl('dl-modelo', uniq('modelo'))}${dl('dl-medida', uniq('medida'))}</div>`;
   }
   const i = info(inst), c = i.c, col = FILL[i.st], tn = empresa();
-  const cost = c.precio_venta && i.recorridos > 0 ? `${c.moneda || 'USD'} ${(c.precio_venta / kmTotal(c) * 1000).toFixed(2).replace('.', ',')} cada 1.000 km` : '—';
+  const ct = costoTotal(c), cost = ct && i.recorridos > 0 ? `${c.moneda || 'USD'} ${(ct / kmTotal(c) * 1000).toFixed(2).replace('.', ',')} cada 1.000 km` : '—';
   return `<div class="panel">
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:start">
-      <div><div class="label">${label}</div><h2 style="font-size:28px">${esc(c.marca)} ${esc(c.modelo || '')}</h2><div class="muted">${esc(c.medida)} · vida ${c.vida}${c.vida > 1 ? ' (recapada)' : ' (nueva)'}</div></div>
+      <div><div class="label">${label} · <span class="mono">${fmtId(c)}</span></div><h2 style="font-size:28px">${esc(c.marca)} ${esc(c.modelo || '')}</h2><div class="muted">${esc(c.medida)} · vida ${c.vida}${c.vida > 1 ? ' (recapada)' : ' (nueva)'}</div></div>
       <div>${pill(i.st)}${i.vencida ? ' <span class="pill warn">Inspeccionar</span>' : ''}${i.lowPsi ? ' <span class="pill warn">Presión baja</span>' : ''}</div></div>
     <div class="wear" title="Dibujo disponible hasta el mínimo de ${mm(tn.profundidad_minima_mm ?? 3)} mm"><span style="width:${Math.round(i.pct * 100)}%;background:var(${col})"></span></div>
     <dl class="kv">
@@ -695,9 +738,9 @@ function tirePanel(v) {
       <dt>Recorridos con esta cubierta</dt><dd>${fmt(i.recorridos)} km</dd>
       <dt>Desgaste</dt><dd>${i.rate ? mm(i.rate) + ' mm cada 1.000 km' : '—'}</dd>
       <dt>Hasta el recambio</dt><dd>${i.kmLeft !== null ? '≈ ' + fmt(i.kmLeft) + ' km' : '—'}</dd>
-      ${ro() && !c.precio_venta ? '' : `<dt>Costo acumulado</dt><dd>${cost}</dd>`}
+      ${!isStaff() && !c.precio_venta ? '' : `<dt>Costo acumulado</dt><dd>${cost}</dd>`}
     </dl>
-    ${ro() ? '' : `<hr class="sep">
+    <hr class="sep">
     <form data-form="insp" data-i="${inst.id}" class="form">
       <div class="field wide"><div class="label">Registrar inspección</div></div>
       <div class="field"><label for="i-km">Km del vehículo</label><input id="i-km" type="number" inputmode="numeric" value="${v.km_actual}" required></div>
@@ -710,7 +753,8 @@ function tirePanel(v) {
       <div class="field wide"><div class="label">Retirar de esta posición</div></div>
       <div class="field"><label for="r-m">Motivo</label><select id="r-m">${MOTIVOS.map(m => `<option value="${m[0]}">${m[1]}</option>`).join('')}</select></div>
       <div class="field"><label for="r-km">Km del vehículo</label><input id="r-km" type="number" inputmode="numeric" value="${v.km_actual}" required></div>
-      <div class="field wide"><button class="btn" type="submit">Retirar cubierta</button></div></form>`}
+      <div class="field wide"><p class="hint" style="margin:0">Rotación, pinchadura o garantía: la cubierta vuelve al stock con su historial. Desgaste o daño: se descarta.</p></div>
+      <div class="field wide"><button class="btn" type="submit">Retirar cubierta</button></div></form>
     <hr class="sep"><div class="label">Historial</div>${timeline(c)}</div>`;
 }
 function viewVehiculo() {
@@ -745,7 +789,7 @@ function friendly(e) {
 async function run(fn, okMsg) {
   if (S.busy) return false;
   S.busy = true;
-  try { await fn(); await loadData(); if (okMsg) toast(okMsg); renderMain(); return true; }
+  try { await fn(); await loadData(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg() : okMsg); renderMain(); return true; }
   catch (e) { toast(friendly(e)); return false; }
   finally { S.busy = false; }
 }
@@ -855,9 +899,233 @@ function createInvite(f) {
 }
 const deleteInvite = id => run(async () => { must(await sb.from('invitaciones').delete().eq('id', id).select('id')); }, 'Invitación eliminada');
 async function changeEmpresa(id) {
-  S.empId = id; lsSet('topflota.emp', id); S.vehId = null; S.msg = ''; S.q = ''; S.cli = '';
+  S.empId = id; lsSet('topflota.emp', id); S.vehId = null; S.msg = ''; S.q = ''; S.cli = ''; S.sq = ''; S.sest = ''; S.scli = ''; S.xq = ''; S.xmot = ''; S.xcli = ''; S.recapId = null;
   S.isAdmin = S.role === 'staff' && S.members.some(x => x.empresa_id === id && x.rol === 'admin');
   showSpin(); try { await loadData(); render(); } catch (e) { showProblem('No se pudo cargar', errTxt(e), true); }
+}
+
+/* ---------- autogestion del cliente: stock, vehiculos, montaje ---------- */
+function addStock() {
+  const cid = pickCli() ? $('#st-cli').value : (S.d.clientes[0] || {}).id;
+  if (!cid) return toast('No hay un cliente asociado. Creá primero el cliente en la pestaña Clientes.');
+  const marca = $('#st-marca').value.trim(), medida = $('#st-med').value.trim(), orig = decimal($('#st-orig').value);
+  const series = $('#st-series').value.split('\n').map(x => x.trim()).filter(Boolean);
+  const qty = Math.max(parseInt($('#st-cant').value, 10) || 1, series.length);
+  if (!marca) return toast('Falta la marca.');
+  if (!medida) return toast('Falta la medida.');
+  if (!(orig > 0)) return toast('Cargá la profundidad nueva en mm.');
+  if (qty > 200) return toast('Cargá hasta 200 cubiertas por vez.');
+  if (new Set(series.map(x => x.toUpperCase())).size < series.length) return toast('Hay series repetidas en la lista.');
+  let nums = [];
+  return run(async () => {
+    const rows = Array.from({ length: qty }, (_, i) => ({
+      empresa_id: S.empId, cliente_id: cid, serie: series[i] || null, qr_codigo: rnd(), marca, modelo: $('#st-modelo').value.trim() || null,
+      medida, profundidad_original_mm: orig, fecha_venta: $('#st-fecha').value || today(), precio_venta: num($('#st-prec').value), moneda: $('#st-mon').value
+    }));
+    nums = must(await sb.from('cubiertas').insert(rows).select('numero')).map(d => d.numero).filter(x => x !== null && x !== undefined).sort((a, b) => a - b);
+  }, () => {
+    const id = n => fmtId({ numero: n });
+    if (qty === 1) return 'Cubierta ingresada' + (nums.length ? ': ' + id(nums[0]) : '');
+    return qty + ' cubiertas ingresadas' + (nums.length ? ' (' + id(nums[0]) + ' a ' + id(nums[nums.length - 1]) + ')' : '');
+  });
+}
+function recapReturn() {
+  const id = S.recapId, c = S.ix.cub[id], prof = decimal($('#rc-prof').value);
+  if (!c) return toast('No se encontró la cubierta.');
+  if (!(prof > 0 && prof <= 25)) return toast('Cargá la profundidad del dibujo recapado en mm.');
+  return run(async () => {
+    must(await sb.rpc('volver_de_recapado', {
+      p_cubierta: id, p_fecha: $('#rc-fecha').value || today(), p_profundidad: prof, p_recapadora: $('#rc-rec').value.trim() || null,
+      p_costo: num($('#rc-costo').value), p_moneda: $('#rc-mon').value, p_notas: $('#rc-notas').value.trim() || null
+    }));
+    S.recapId = null;
+  }, () => fmtId(c) + ' vuelve al stock como vida ' + (Number(c.vida) + 1));
+}
+function deleteStock(id) {
+  S.delArm = null;
+  return run(async () => {
+    const d = must(await sb.from('cubiertas').delete().eq('id', id).select('id'));
+    if (!d.length) throw { message: 'No se pudo eliminar: la cubierta ya tiene historial.' };
+  }, 'Cubierta eliminada');
+}
+async function createVehicle() {
+  const cid = pickCli() ? $('#v-cli').value : (S.d.clientes[0] || {}).id, pat = $('#v-pat').value.trim().toUpperCase();
+  if (!cid) return toast('No hay un cliente asociado a tu usuario.');
+  if (!pat) return toast('Falta la patente.');
+  let newId = null;
+  const ok = await run(async () => {
+    const v = must(await sb.from('vehiculos').insert({
+      empresa_id: S.empId, cliente_id: cid, patente: pat, tipo: $('#v-tipo').value, configuracion: $('#v-conf').value, trabajo: $('#v-trab').value,
+      km_actual: Number($('#v-km').value) || 0, marca: $('#v-vmarca').value.trim() || null, modelo: $('#v-vmodelo').value.trim() || null
+    }).select().single());
+    newId = v.id;
+  }, 'Vehículo agregado');
+  if (ok && newId && S.ix.veh[newId]) { S.tab = 'flota'; openVeh(newId); renderMain(); window.scrollTo(0, 0); }
+}
+function mountFromStock() {
+  const v = S.ix.veh[S.vehId], code = S.code, pos = (S.ix.posByVeh[v.id] || {})[code], c = S.ix.cub[$('#ms-c').value];
+  const prof = decimal($('#ms-prof').value), km = Number($('#ms-km').value);
+  if (!pos || !c) return toast('No se encontró la posición o la cubierta.');
+  if (!(prof >= 0 && prof <= Number(c.profundidad_original_mm))) return toast('La profundidad debe estar entre 0 y ' + mm(c.profundidad_original_mm) + ' mm.');
+  if (!(km >= v.km_actual)) return toast('El km no puede ser menor al último conocido (' + fmt(v.km_actual) + ').');
+  return run(async () => {
+    const i = must(await sb.from('instalaciones').insert({
+      empresa_id: S.empId, cubierta_id: c.id, vehiculo_id: v.id, posicion_id: pos.id, fecha_instalacion: today(),
+      km_vehiculo_instalacion: km, instalada_por: S.user.id
+    }).select().single());
+    must(await sb.from('inspecciones').insert({
+      empresa_id: S.empId, cubierta_id: c.id, instalacion_id: i.id, fecha: today(), km_vehiculo: km,
+      presion_psi: num($('#ms-psi').value), profundidad_mm: prof, inspector_id: S.user.id
+    }).select('id'));
+    await bumpKm(v, km);
+  }, fmtId(c) + ' montada en ' + code);
+}
+
+/* TOP Flota - stock de cubiertas del cliente y alta de vehiculos */
+const EST = { stock: ['mute', 'En stock'], instalada: ['ok', 'Montada'], en_recapado: ['warn', 'En recapado'], descartada: ['bad', 'Descartada'] };
+const pickCli = () => isStaff() || S.d.clientes.length > 1;
+const cliSelect = (id, all) => `<select id="${id}">${all ? '<option value="">Todos</option>' : ''}${S.d.clientes.map(c => `<option value="${c.id}">${esc(c.razon_social)}</option>`).join('')}</select>`;
+
+function stockList() {
+  const q = (S.sq || '').trim().toUpperCase();
+  return S.d.cubiertas.filter(c => (!S.scli || c.cliente_id === S.scli) && (!S.sest || c.estado === S.sest) &&
+    (!q || (fmtId(c) + ' ' + (c.serie || '') + ' ' + c.marca + ' ' + (c.modelo || '') + ' ' + c.medida).toUpperCase().includes(q)))
+    .sort((a, b) => (b.numero || 0) - (a.numero || 0));
+}
+function stockRows() {
+  const staff = isStaff(), rows = stockList();
+  if (!rows.length) return `<tr><td colspan="${staff ? 8 : 7}" class="empty">${S.d.cubiertas.length ? 'No hay cubiertas con ese filtro.' : 'Todavía no hay cubiertas en el stock.'}</td></tr>`;
+  return rows.map(c => {
+    const act = S.ix.activeByCub[c.id], v = act && S.ix.veh[act.vehiculo_id], p = act && S.ix.pos[act.posicion_id];
+    const e = EST[c.estado] || ['mute', c.estado], del = c.estado === 'stock' && !(S.ix.instByCub[c.id] || []).length;
+    return `<tr${act ? ` class="click" data-act="openveh" data-v="${v.id}" data-code="${esc(p.codigo)}"` : ''}>
+      <td class="nolabel"><span class="mono tid">${fmtId(c)}</span></td>
+      ${staff ? `<td data-l="Cliente">${esc(S.ix.cli[c.cliente_id]?.razon_social || '—')}</td>` : ''}
+      <td data-l="Cubierta">${esc(c.marca)} ${esc(c.modelo || '')}${c.vida > 1 ? ` <span class="pill mute">Vida ${c.vida}</span>` : ''}<br><span class="muted">${esc(c.medida)}</span></td>
+      <td data-l="Serie / DOT" class="mono">${esc(c.serie || '—')}</td>
+      <td class="r num" data-l="Dibujo">${mm(lastDepth(c))} mm</td>
+      <td data-l="Estado"><span class="pill ${e[0]}">${e[1]}</span></td>
+      <td data-l="Ubicación">${act ? `${plate(v.patente, true)} <span class="mono">${esc(p.codigo)}</span>` : '—'}</td>
+      <td class="r nolabel">${c.estado === 'en_recapado' ? `<button class="btn small" data-act="recap" data-c="${c.id}">Volvió del recapado</button>` : ''}${del ? `<button class="btn small" data-act="delstock" data-c="${c.id}" aria-label="Eliminar ${fmtId(c)}">${S.delArm === c.id ? '¿Seguro?' : 'Eliminar'}</button>` : ''}</td></tr>`;
+  }).join('');
+}
+function recapPanel() {
+  const c = S.recapId && S.ix.cub[S.recapId]; if (!c || c.estado !== 'en_recapado') return '';
+  const ins = lastInst(c);
+  return `<form class="panel recap" data-form="recap" style="margin-bottom:20px;border-color:var(--accent)">
+    <div class="label">Vuelve del recapado</div><h2 style="font-size:22px;margin:2px 0 4px"><span class="mono tid">${fmtId(c)}</span> ${esc(c.marca)} ${esc(c.modelo || '')} · ${esc(c.medida)}</h2>
+    <p class="muted" style="margin:0 0 14px">Pasa de vida ${c.vida} a vida ${Number(c.vida) + 1}. Queda en el stock con su historial completo y el recapado registrado${ins ? ` (retirada el ${fdate(ins.fecha_retiro)})` : ''}.</p>
+    <div class="form">
+      <div class="field"><label for="rc-fecha">Fecha de vuelta</label><input id="rc-fecha" type="date" value="${today()}"></div>
+      <div class="field"><label for="rc-rec">Recapadora</label><input id="rc-rec" placeholder="Opcional" autocomplete="off"></div>
+      <div class="field"><label for="rc-prof">Profundidad del dibujo recapado (mm)</label><input id="rc-prof" inputmode="decimal" placeholder="Ej. 13,0" required></div>
+      <div class="field"><label for="rc-costo">Costo del recapado</label><input id="rc-costo" type="number" inputmode="decimal" step="any" placeholder="Opcional"></div>
+      <div class="field"><label for="rc-mon">Moneda</label><select id="rc-mon"><option${c.moneda === 'ARS' ? '' : ' selected'}>USD</option><option${c.moneda === 'ARS' ? ' selected' : ''}>ARS</option></select></div>
+      <div class="field wide"><label for="rc-notas">Notas</label><input id="rc-notas" placeholder="Opcional" autocomplete="off"></div>
+      <div class="field wide row"><button class="btn primary" type="submit">Registrar vuelta al stock</button><button class="btn" type="button" data-act="norecap">Cancelar</button></div></div></form>`;
+}
+function viewStock() {
+  const staff = isStaff(), cs = S.d.cubiertas, n = k => cs.filter(c => c.estado === k).length, z = x => (x ? '' : ' zero');
+  return `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>${staff ? 'Stock de cubiertas de los clientes' : 'Tu stock de cubiertas'}</h1></div></div>
+    ${recapPanel()}<details class="panel addstock"${cs.length ? '' : ' open'}><summary>+ Ingresar cubiertas al stock</summary>
+      <form id="stockform" data-form="stock" class="form" style="margin-top:16px">
+        ${pickCli() ? `<div class="field wide"><label for="st-cli">Cliente</label>${cliSelect('st-cli')}</div>` : ''}
+        <div class="field"><label for="st-marca">Marca</label><input id="st-marca" list="dl-marca" required autocomplete="off"></div>
+        <div class="field"><label for="st-modelo">Modelo</label><input id="st-modelo" list="dl-modelo" autocomplete="off"></div>
+        <div class="field"><label for="st-med">Medida</label><input id="st-med" list="dl-medida" placeholder="295/80 R22.5" required autocomplete="off"></div>
+        <div class="field"><label for="st-cant">Cantidad</label><input id="st-cant" type="number" inputmode="numeric" min="1" max="200" value="1" required></div>
+        <div class="field"><label for="st-orig">Profundidad nueva (mm)</label><input id="st-orig" inputmode="decimal" value="16" required></div>
+        <div class="field"><label for="st-fecha">Fecha de compra</label><input id="st-fecha" type="date" value="${today()}"></div>
+        <div class="field"><label for="st-prec">Precio por unidad</label><input id="st-prec" type="number" inputmode="decimal" step="any" placeholder="Opcional"></div>
+        <div class="field"><label for="st-mon">Moneda</label><select id="st-mon"><option>USD</option><option>ARS</option></select></div>
+        <div class="field wide"><label for="st-series">Series / DOT (opcional, una por línea)</label><textarea id="st-series" rows="3" class="mono" placeholder="Si las cargás, se asignan en orden a cada cubierta"></textarea></div>
+        <div class="field wide"><button class="btn primary" type="submit">Ingresar al stock</button><span class="hint" style="margin-left:10px">Cada cubierta recibe un ID propio (TF-00001, TF-00002…).</span></div></form>
+      ${dl('dl-marca', uniq('marca'))}${dl('dl-modelo', uniq('modelo'))}${dl('dl-medida', uniq('medida'))}</details>
+    <div class="stats">
+      <div class="stat${z(n('stock'))}"><span class="label">En stock</span><b>${n('stock')}</b></div>
+      <div class="stat${z(n('instalada'))}"><span class="label">Montadas</span><b>${n('instalada')}</b></div>
+      <div class="stat warn${z(n('en_recapado'))}"><span class="label">En recapado</span><b>${n('en_recapado')}</b></div>
+      <div class="stat bad${z(n('descartada'))}"><span class="label">Descartadas</span><b>${n('descartada')}</b></div></div>
+    <div class="panel">
+      <div class="form" style="margin-bottom:12px">
+        <div class="field"><label for="sq">Buscar por ID, serie, marca o medida</label><input id="sq" value="${esc(S.sq)}" placeholder="TF-00012" autocomplete="off"></div>
+        <div class="field"><label for="sest">Estado</label><select id="sest">${[['', 'Todas']].concat(Object.entries(EST).map(([k, v]) => [k, v[1]])).map(o => `<option value="${o[0]}"${S.sest === o[0] ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+        ${pickCli() && S.d.clientes.length > 1 ? `<div class="field"><label for="scli">Cliente</label>${cliSelect('scli', true).replace(`value="${S.scli}"`, `value="${S.scli}" selected`)}</div>` : ''}
+      </div>
+      <div class="tablewrap"><table class="cards"><thead><tr><th>ID</th>${staff ? '<th>Cliente</th>' : ''}<th>Cubierta</th><th>Serie / DOT</th><th class="r">Dibujo</th><th>Estado</th><th>Ubicación</th><th></th></tr></thead>
+      <tbody id="srows">${stockRows()}</tbody></table></div></div>`;
+}
+
+/* ---------- Agregar vehiculo ---------- */
+function viewAddVeh() {
+  return `<button class="btn small" data-tab="flota">← Volver a la flota</button>
+    <div class="head" style="margin-top:14px"><div><div class="label">${esc(empresa().nombre)}</div><h1>Agregar un vehículo</h1></div></div>
+    <form id="vehform" class="panel" data-form="veh">
+      <div class="pick-grid rev">
+        <div class="form" style="align-content:start">
+          ${pickCli() ? `<div class="field wide"><label for="v-cli">Cliente</label>${cliSelect('v-cli')}</div>` : ''}
+          <div class="field"><label for="v-pat">Patente</label><input id="v-pat" placeholder="AB 123 CD" autocomplete="off" required></div>
+          <div class="field"><label for="v-km">Km actuales</label><input id="v-km" type="number" inputmode="numeric" placeholder="Opcional"></div>
+          <div class="field"><label for="v-tipo">Tipo de vehículo</label><select id="v-tipo">${TIPOS.map(t => `<option value="${t[0]}">${t[1]}</option>`).join('')}</select></div>
+          <div class="field"><label for="v-conf">Configuración de ejes</label><select id="v-conf">${CONFIGS.map(c => `<option value="${c[0]}"${c[0] === DEF_CONFIG[TIPOS[0][0]] ? ' selected' : ''}>${c[1]}</option>`).join('')}</select></div>
+          <div class="field"><label for="v-trab">Trabajo</label><select id="v-trab">${TRABAJOS.map(t => `<option>${t}</option>`).join('')}</select></div>
+          <div class="field"><label for="v-vmarca">Marca</label><input id="v-vmarca" placeholder="Opcional" autocomplete="off"></div>
+          <div class="field"><label for="v-vmodelo">Modelo</label><input id="v-vmodelo" placeholder="Opcional" autocomplete="off"></div></div>
+        <div><div id="vpreview" class="diagram"></div><p class="hint">Así quedan las posiciones. Después montás una cubierta de tu stock en cada posición.</p></div></div>
+      <hr class="sep"><button class="btn primary" type="submit">Guardar vehículo</button></form>`;
+}
+function drawPreview() {
+  const box = $('#vpreview'); if (!box) return;
+  const v = { tipo: $('#v-tipo').value, configuracion: $('#v-conf').value };
+  box.innerHTML = drawVeh(v, (code, x, y, w, h, rx) => `<g class="tirebtn pv"><rect class="t vac" x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/><text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle" style="font:600 10px var(--f-mono);fill:var(--ink-3)">${code}</text></g>`);
+}
+
+/* ---------- Scrap: cubiertas dadas de baja ---------- */
+function lastInst(c) {
+  return [...(S.ix.instByCub[c.id] || [])].filter(i => i.fecha_retiro).sort((a, b) => (a.fecha_retiro < b.fecha_retiro ? 1 : a.fecha_retiro > b.fecha_retiro ? -1 : 0))[0];
+}
+function scrapList() {
+  const q = (S.xq || '').trim().toUpperCase();
+  return S.d.cubiertas.filter(c => c.estado === 'descartada' && (!S.xcli || c.cliente_id === S.xcli) &&
+    (!S.xmot || (lastInst(c) || {}).motivo_retiro === S.xmot) &&
+    (!q || (fmtId(c) + ' ' + (c.serie || '') + ' ' + c.marca + ' ' + (c.modelo || '') + ' ' + c.medida).toUpperCase().includes(q)))
+    .sort((a, b) => { const x = (lastInst(a) || {}).fecha_retiro || '', y = (lastInst(b) || {}).fecha_retiro || ''; return x < y ? 1 : x > y ? -1 : 0; });
+}
+function scrapRows() {
+  const staff = isStaff(), rows = scrapList();
+  if (!rows.length) return `<tr><td colspan="${staff ? 9 : 8}" class="empty">${S.d.cubiertas.some(c => c.estado === 'descartada') ? 'No hay cubiertas con ese filtro.' : 'Todavía no hay cubiertas dadas de baja. Las que retires por desgaste o daño aparecen acá.'}</td></tr>`;
+  return rows.map(c => {
+    const ins = lastInst(c), v = ins && S.ix.veh[ins.vehiculo_id], p = ins && S.ix.pos[ins.posicion_id], km = kmTotal(c);
+    const ct = costoTotal(c), cost = ct && km > 0 ? `${c.moneda || 'USD'} ${(ct / km * 1000).toFixed(2).replace('.', ',')}` : '—';
+    return `<tr${v ? ` class="click" data-act="openveh" data-v="${v.id}" data-code="${esc(p.codigo)}"` : ''}>
+      <td class="nolabel"><span class="mono tid">${fmtId(c)}</span></td>
+      ${staff ? `<td data-l="Cliente">${esc(S.ix.cli[c.cliente_id]?.razon_social || '—')}</td>` : ''}
+      <td data-l="Cubierta">${esc(c.marca)} ${esc(c.modelo || '')}${c.vida > 1 ? ` <span class="pill mute">Vida ${c.vida}</span>` : ''}<br><span class="muted">${esc(c.medida)}${c.serie ? ' · ' + esc(c.serie) : ''}</span></td>
+      <td data-l="Baja">${ins ? fdate(ins.fecha_retiro) : '—'}<br><span class="muted">${ins ? esc(motivoLabel(ins.motivo_retiro)) : ''}</span></td>
+      <td data-l="Última ubicación">${v ? `${plate(v.patente, true)} <span class="mono">${esc(p.codigo)}</span>` : '—'}</td>
+      <td class="r num" data-l="Dibujo final">${mm(lastDepth(c))} mm</td>
+      <td class="r num" data-l="Km recorridos">${fmt(km)} km</td>
+      <td class="r num" data-l="Cada 1.000 km">${cost}</td></tr>`;
+  }).join('');
+}
+function viewScrap() {
+  const staff = isStaff(), all = S.d.cubiertas.filter(c => c.estado === 'descartada');
+  const kms = all.map(kmTotal).filter(k => k > 0), avg = kms.length ? Math.round(kms.reduce((a, b) => a + b, 0) / kms.length) : null;
+  const costs = all.filter(c => costoTotal(c) && kmTotal(c) > 0).map(c => costoTotal(c) / kmTotal(c) * 1000), avgC = costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : null;
+  const mot = [['', 'Todos'], ['desgaste', 'Desgaste'], ['danio', 'Daño']];
+  return `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>${staff ? 'Scrap de los clientes' : 'Scrap'}</h1></div></div>
+    <div class="stats">
+      <div class="stat${all.length ? '' : ' zero'}"><span class="label">Cubiertas dadas de baja</span><b>${all.length}</b></div>
+      <div class="stat${avg ? '' : ' zero'}"><span class="label">Vida promedio</span><b>${avg ? fmt(avg) + ' km' : '—'}</b></div>
+      <div class="stat${avgC ? '' : ' zero'}"><span class="label">Costo promedio cada 1.000 km</span><b>${avgC ? avgC.toFixed(2).replace('.', ',') : '—'}</b></div></div>
+    <div class="panel">
+      <div class="form" style="margin-bottom:12px">
+        <div class="field"><label for="xq">Buscar por ID, serie, marca o medida</label><input id="xq" value="${esc(S.xq)}" placeholder="TF-00012" autocomplete="off"></div>
+        <div class="field"><label for="xmot">Motivo de baja</label><select id="xmot">${mot.map(o => `<option value="${o[0]}"${S.xmot === o[0] ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+        ${pickCli() && S.d.clientes.length > 1 ? `<div class="field"><label for="xcli">Cliente</label>${cliSelect('xcli', true)}</div>` : ''}
+      </div>
+      <div class="tablewrap"><table class="cards"><thead><tr><th>ID</th>${staff ? '<th>Cliente</th>' : ''}<th>Cubierta</th><th>Baja</th><th>Última ubicación</th><th class="r">Dibujo final</th><th class="r">Km recorridos</th><th class="r">Cada 1.000 km</th></tr></thead>
+      <tbody id="xrows">${scrapRows()}</tbody></table></div></div>`;
 }
 
 /* TOP Flota - venta, alertas, rendimiento, clientes, equipo */
@@ -932,7 +1200,7 @@ function msgBox() {
     <div style="margin-top:8px"><button class="btn small primary" data-act="copymsg">Copiar mensaje</button></div></div>`;
 }
 function viewAlertas() {
-  const al = alertList(), staff = !ro();
+  const al = alertList(), staff = isStaff();
   const rows = al.map(a => {
     const i = a.i, cli = S.ix.cli[i.v.cliente_id] || {};
     return `<tr class="click" data-act="openveh" data-v="${i.v.id}"><td class="nolabel">${plate(i.v.patente, true)}</td>
@@ -1013,12 +1281,12 @@ function viewEquipo() {
 
 /* ---------- Mas (celular) ---------- */
 function viewMas() {
-  const staff = !ro();
+  const staff = isStaff();
   return `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>Más</h1></div></div>
     <div class="panel" style="display:grid;gap:10px">
       <div class="ro">Sesión: <b>${esc(S.user.email)}</b>${staff ? ' · ' + (S.isAdmin ? 'administrador' : 'personal') : ' · cliente'}</div>
       ${S.empresas.length > 1 ? `<div class="field"><label for="emp2">Empresa</label><select id="emp2">${S.empresas.map(e => `<option value="${e.id}"${e.id === S.empId ? ' selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></div>` : ''}
-      ${staff ? '<button class="btn" data-tab="rend">Rendimiento por marca</button><button class="btn" data-tab="equipo">Equipo y accesos</button>' : ''}
+      <button class="btn" data-tab="scrap">Scrap (cubiertas dadas de baja)</button>${staff ? '<button class="btn" data-tab="stock">Stock de los clientes</button><button class="btn" data-tab="rend">Rendimiento por marca</button><button class="btn" data-tab="equipo">Equipo y accesos</button>' : ''}
       <button class="btn" data-act="logout">Cerrar sesión</button></div>`;
 }
 
@@ -1028,6 +1296,7 @@ const ICON = {
   venta: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
   alertas: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 21h4"/>',
   clientes: '<circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M16 5.5a3 3 0 0 1 0 5M18 14c2 .7 3 2.3 3 5"/>',
+  stock: '<path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8"/>',
   mas: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
 };
 const ico = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ''}</svg>`;
@@ -1036,27 +1305,29 @@ function tabsDef() {
   const al = alertList(), n = al.length, bad = al.some(a => a.i.st === 'bad');
   if (S.role === 'staff') {
     return {
-      desk: [['flota', 'Flota'], ['venta', 'Nueva venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['rend', 'Rendimiento'], ['equipo', 'Equipo']],
+      desk: [['flota', 'Flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['venta', 'Nueva venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['rend', 'Rendimiento'], ['equipo', 'Equipo']],
       mob: [['flota', 'Flota'], ['venta', 'Venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['mas', 'Más']]
     };
   }
-  return { desk: [['flota', 'Mi flota'], ['alertas', 'Alertas', n, bad]], mob: [['flota', 'Mi flota'], ['alertas', 'Alertas', n, bad], ['mas', 'Más']] };
+  return { desk: [['flota', 'Mi flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['alertas', 'Alertas', n, bad]], mob: [['flota', 'Mi flota'], ['stock', 'Stock'], ['alertas', 'Alertas', n, bad], ['mas', 'Más']] };
 }
 function render() {
   if (!S.user || !S.role) return;
-  const t = tabsDef(), views = { flota: viewFlota, venta: viewVenta, alertas: viewAlertas, clientes: viewClientes, rend: viewRend, equipo: viewEquipo, mas: viewMas };
-  if (![...t.desk, ...t.mob].some(x => x[0] === S.tab)) S.tab = 'flota';
+  const t = tabsDef(), views = { flota: viewFlota, venta: viewVenta, alertas: viewAlertas, clientes: viewClientes, rend: viewRend, equipo: viewEquipo, mas: viewMas, stock: viewStock, scrap: viewScrap, addveh: viewAddVeh };
+  if (![...t.desk, ...t.mob].some(x => x[0] === S.tab) && S.tab !== 'addveh') S.tab = 'flota';
+  const cur = S.tab === 'addveh' ? 'flota' : S.tab;
   const emp = S.empresas.length > 1
     ? `<select id="emp" aria-label="Empresa">${S.empresas.map(e => `<option value="${e.id}"${e.id === S.empId ? ' selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select>`
     : `<span>${esc(empresa().nombre)}</span>`;
   const pillOf = x => (x[2] ? `<span class="pill ${x[3] ? 'bad' : 'warn'}">${x[2]}</span>` : '');
-  const mobSel = x => x[0] === S.tab || (x[0] === 'mas' && ['rend', 'equipo'].includes(S.tab));
+  const mobSel = x => x[0] === (S.tab === 'addveh' ? 'flota' : S.tab) || (x[0] === 'mas' && ['rend', 'equipo', 'scrap'].includes(S.tab));
   $('#app').innerHTML = `<header class="top"><div class="in"><div class="brand">${LOGO_FULL}</div>
     <div class="who">${emp}<span class="mail">${esc(S.user.email)}</span><button class="btn small out" data-act="logout">Salir</button></div></div></header>
-    <div class="tabsbar"><nav class="tabs in" role="tablist">${t.desk.map(x => `<button class="tab" role="tab" aria-selected="${x[0] === S.tab}" data-tab="${x[0]}">${x[1]}${pillOf(x)}</button>`).join('')}</nav></div>
+    <div class="tabsbar"><nav class="tabs in" role="tablist">${t.desk.map(x => `<button class="tab" role="tab" aria-selected="${x[0] === cur}" data-tab="${x[0]}">${x[1]}${pillOf(x)}</button>`).join('')}</nav></div>
     <main>${views[S.tab]()}</main>
     <nav class="bottombar">${t.mob.map(x => `<button role="tab" aria-selected="${mobSel(x)}" data-tab="${x[0]}">${ico(x[0])}${x[1]}${pillOf(x)}</button>`).join('')}</nav>`;
   if (S.tab === 'venta') { posList(); }
+  if (S.tab === 'addveh') { drawPreview(); }
   S.prefCli = null;
 }
 const renderMain = render;
@@ -1064,14 +1335,14 @@ const renderMain = render;
 /* ---------- eventos ---------- */
 document.addEventListener('click', e => {
   const tabEl = e.target.closest('[data-tab]');
-  if (tabEl) { S.tab = tabEl.dataset.tab; S.vehId = null; render(); window.scrollTo(0, 0); return; }
+  if (tabEl) { S.tab = tabEl.dataset.tab; S.vehId = null; S.recapId = null; render(); window.scrollTo(0, 0); return; }
   const pk = e.target.closest('[data-pos]');
   if (pk) { const cb = document.querySelector(`#poslist [name=pos][value="${pk.dataset.pos}"]`); if (cb) { cb.checked = !cb.checked; drawSketch(); } return; }
   const g = e.target.closest('[data-code]');
   if (g && S.vehId) { S.code = g.dataset.code; const v = S.ix.veh[S.vehId]; $('.diagram').innerHTML = diagram(v); $('#tirepanel').innerHTML = tirePanel(v); return; }
   const a = e.target.closest('[data-act]'); if (!a) return;
   const act = a.dataset.act;
-  if (act === 'openveh') { openVeh(a.dataset.v); S.tab = 'flota'; render(); window.scrollTo(0, 0); }
+  if (act === 'openveh') { openVeh(a.dataset.v); if (a.dataset.code) S.code = a.dataset.code; S.tab = 'flota'; render(); window.scrollTo(0, 0); }
   else if (act === 'allpos' || act === 'nopos') { document.querySelectorAll('#poslist [name=pos]').forEach(c => { c.checked = act === 'allpos'; }); drawSketch(); }
   else if (act === 'back') { S.vehId = null; render(); }
   else if (act === 'msg') { S.msg = buildMsg(a.dataset.i); $('#msgbox').innerHTML = msgBox(); }
@@ -1084,6 +1355,9 @@ document.addEventListener('click', e => {
   else if (act === 'logout') logout();
   else if (act === 'salecli') { S.prefCli = a.dataset.c; S.tab = 'venta'; render(); window.scrollTo(0, 0); }
   else if (act === 'invitecli') { S.prefCli = a.dataset.c; S.tab = 'equipo'; render(); window.scrollTo(0, 0); }
+  else if (act === 'recap') { S.recapId = a.dataset.c; render(); window.scrollTo(0, 0); }
+  else if (act === 'norecap') { S.recapId = null; render(); }
+  else if (act === 'delstock') { const id = a.dataset.c; if (S.delArm === id) deleteStock(id); else { S.delArm = id; $('#srows').innerHTML = stockRows(); toast('Tocá de nuevo para eliminarla'); } }
   else if (act === 'delinv') deleteInvite(a.dataset.i);
 });
 document.addEventListener('keydown', e => {
@@ -1091,11 +1365,18 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'q') { S.q = e.target.value; $('#rows').innerHTML = vehRows(); }
+  if (e.target.id === 'xq') { S.xq = e.target.value; $('#xrows').innerHTML = scrapRows(); }
+  if (e.target.id === 'sq') { S.sq = e.target.value; $('#srows').innerHTML = stockRows(); }
 });
 document.addEventListener('change', e => {
   const id = e.target.id, val = e.target.value;
   if (e.target.name === 'pos') drawSketch();
   else if (id === 'emp' || id === 'emp2') changeEmpresa(val);
+  else if (id === 'xmot' || id === 'xcli') { S[id] = val; $('#xrows').innerHTML = scrapRows(); }
+  else if (id === 'sest' || id === 'scli') { S[id] = val; $('#srows').innerHTML = stockRows(); }
+  else if (id === 'ms-c') { const o = e.target.selectedOptions[0]; $('#ms-prof').value = mm(Number(o.dataset.d)); }
+  else if (id === 'v-tipo') { $('#v-conf').value = DEF_CONFIG[val] || '6x2'; drawPreview(); }
+  else if (id === 'v-conf') drawPreview();
   else if (id === 'clif') { S.cli = val; $('#rows').innerHTML = vehRows(); }
   else if (id === 'trab') { S.trab = val; render(); }
   else if (id === 's-tipo') { $('#s-conf').value = DEF_CONFIG[val] || '6x2'; posList(); }
@@ -1108,10 +1389,13 @@ document.addEventListener('submit', e => {
   const f = e.target;
   if (f.id === 'authform') return doAuth(f);
   const k = f.dataset.form;
-  if (ro() && k) return;
   if (k === 'insp') saveInspection(f);
   else if (k === 'retire') retireTire(f);
   else if (k === 'mount') mountTire(f);
+  else if (k === 'mountstock') mountFromStock();
+  else if (k === 'stock') addStock();
+  else if (k === 'recap') recapReturn();
+  else if (k === 'veh') createVehicle();
   else if (k === 'sale') createSale(f);
   else if (k === 'client') createClient(f);
   else if (k === 'invite') createInvite(f);
