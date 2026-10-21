@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0c0c0d">
 <title>TOP Flota</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%230c0c0d%22/%3E%3Ccircle cx=%2232%22 cy=%2232%22 r=%2222%22 fill=%22none%22 stroke=%22%23d71920%22 stroke-width=%229%22/%3E%3Ccircle cx=%2232%22 cy=%2232%22 r=%2222%22 fill=%22none%22 stroke=%22%230c0c0d%22 stroke-width=%229%22 stroke-dasharray=%222.2 6.439%22/%3E%3Cpath d=%22M22.5 23.5h19v6h-6.5v14.5h-6V29.5h-6.5z%22 fill=%22%23ffffff%22/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -80,9 +80,10 @@ h1, h2, h3 { font-family: var(--f-display); font-weight: 600; letter-spacing: .0
 
 
 /* barra superior */
-.top { max-width: 1120px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px 20px; align-items: center; justify-content: space-between; background: var(--head); color: var(--head-ink); border-radius: 0 0 14px 14px; border-bottom: 4px solid var(--accent); }
+.top { max-width: 1120px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; background: var(--head); color: var(--head-ink); border-radius: 0 0 14px 14px; border-bottom: 4px solid var(--accent); }
 .brand { font-family: var(--f-display); font-weight: 700; font-size: 28px; letter-spacing: .03em; display: flex; align-items: center; gap: 10px; line-height: 1; }
-.brand svg { width: 28px; height: 28px; }
+.brand svg.lock { height: 34px; width: auto; display: block; }
+.brand svg.mark { width: 40px; height: 40px; }
 .brand b { color: var(--accent); font-weight: 700; }
 .brand span { font-weight: 500; }
 .who { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 13px; color: #b9b9c2; }
@@ -101,7 +102,7 @@ main { max-width: 1120px; margin: 0 auto; padding-top: 20px; padding-bottom: 24p
 .login .panel { padding: 24px; }
 .login h1 { font-size: 38px; margin-bottom: 4px; }
 .login .brand { justify-content: center; margin-bottom: 18px; font-size: 40px; color: var(--ink); }
-.login .brand svg { width: 40px; height: 40px; }
+.login .brand svg.lock { height: 56px; }
 .login form { display: grid; gap: 12px; margin-top: 16px; }
 .msg { padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .msg.err { background: var(--bad-soft); color: var(--bad); }
@@ -119,6 +120,8 @@ main { max-width: 1120px; margin: 0 auto; padding-top: 20px; padding-bottom: 24p
   .field input, .field select, .field textarea { padding: 11px 12px; font-size: 16px; }
   .head h1 { font-size: 28px; }
   .who .mail, .who .btn.out { display: none; }
+  .brand svg.lock { height: 28px; }
+  .who select { max-width: 140px; }
   .tabs { display: none; }
   .bottombar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: var(--head); border-top: 3px solid var(--accent); padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); }
   .bottombar button { flex: 1; background: none; border: 0; color: #a9a9b3; padding: 8px 2px; font-size: 11.5px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; position: relative; min-width: 0; }
@@ -357,7 +360,8 @@ function alertList() {
 }
 
 /* TOP Flota - ingreso, sesion e invitaciones */
-const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="16" cy="16" r="4" fill="var(--accent)"/><path d="M16 3v6M16 23v6M3 16h6M23 16h6" stroke="currentColor" stroke-width="2.5"/></svg>';
+const LOGO = '<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0c0c0d"/><circle cx="32" cy="32" r="22" fill="none" stroke="#d71920" stroke-width="9"/><circle cx="32" cy="32" r="22" fill="none" stroke="#0c0c0d" stroke-width="9" stroke-dasharray="2.2 6.439"/><path d="M22.5 23.5h19v6h-6.5v14.5h-6V29.5h-6.5z" fill="#ffffff"/></svg>';
+const LOGO_FULL = '<svg class="lock" viewBox="0 0 406 64" role="img" aria-label="TOP Flota"><rect width="64" height="64" rx="14" fill="#0c0c0d"/><circle cx="32" cy="32" r="22" fill="none" stroke="#d71920" stroke-width="9"/><circle cx="32" cy="32" r="22" fill="none" stroke="#0c0c0d" stroke-width="9" stroke-dasharray="2.2 6.439"/><path d="M22.5 23.5h19v6h-6.5v14.5h-6V29.5h-6.5z" fill="#ffffff"/><g transform="translate(84 12) skewX(-8) translate(6 0)"><g transform="translate(0 0)"><path d="M0 4H32M16 0V40" fill="none" stroke="#d71920" stroke-width="8"/></g><g transform="translate(38 0)"><rect x="4" y="4" width="26" height="32" rx="11" fill="none" stroke="#d71920" stroke-width="8"/></g><g transform="translate(78 0)"><path d="M4 40V4H17C24 4 26 9 26 14.5C26 20 24 25 17 25H4" fill="none" stroke="#d71920" stroke-width="8"/></g><g transform="translate(126 0)"><path d="M4 40V4H28M4 22H24" fill="none" stroke="currentColor" stroke-width="8"/></g><g transform="translate(160 0)"><path d="M4 0V36H28" fill="none" stroke="currentColor" stroke-width="8"/></g><g transform="translate(194 0)"><rect x="4" y="4" width="26" height="32" rx="11" fill="none" stroke="currentColor" stroke-width="8"/></g><g transform="translate(234 0)"><path d="M0 4H32M16 0V40" fill="none" stroke="currentColor" stroke-width="8"/></g><g transform="translate(272 0)"><path d="M0 40L14.2 0H21.8L36 40H27.6L25.2 32.6H10.8L8.4 40ZM13.2 25.4H22.8L18 11.6Z" fill="currentColor" fill-rule="evenodd"/></g></g></svg>';
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sin almacenamiento */ } };
 
@@ -371,7 +375,7 @@ function authErr(e) {
 }
 function showLogin(o = {}) {
   const mode = o.mode || 'in';
-  $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO}<b>TOP</b><span>Flota</span></div>
+  $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO_FULL}</div>
     <div class="panel"><h1>${mode === 'in' ? 'Ingresar' : 'Crear cuenta'}</h1>
     <p class="muted" style="margin:0">${mode === 'in' ? 'Seguimiento de cubiertas por flota.' : 'Usá el mismo mail con el que te invitó TOP Neumáticos.'}</p>
     ${o.msg ? `<div class="msg ${o.msg.t}" style="margin-top:14px">${esc(o.msg.m)}</div>` : ''}
@@ -385,7 +389,7 @@ function showLogin(o = {}) {
 }
 function showSpin(t) { $('#app').innerHTML = `<div class="spin">${esc(t || 'Cargando…')}</div>`; }
 function showProblem(title, text, retry) {
-  $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO}<b>TOP</b><span>Flota</span></div><div class="panel">
+  $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO_FULL}</div><div class="panel">
     <h1 style="font-size:30px">${esc(title)}</h1><p class="muted">${esc(text)}</p>
     <div class="row">${retry ? '<button class="btn primary" data-act="retry">Reintentar</button>' : ''}<button class="btn" data-act="logout">Cerrar sesión</button></div></div></div>`;
 }
@@ -417,7 +421,7 @@ async function afterLogin() {
     S.members = m.data; S.access = a.data;
     S.role = m.data.length ? 'staff' : a.data.length ? 'portal' : null;
     if (!S.role) {
-      $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO}<b>TOP</b><span>Flota</span></div><div class="panel">
+      $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO_FULL}</div><div class="panel">
         <h1 style="font-size:30px">Todavía no tenés acceso</h1>
         <p class="muted">Pedile a TOP Neumáticos que te invite con este mail: <b>${esc(S.user.email)}</b>. Cuando lo haga, volvé a ingresar.</p>
         <div class="row"><button class="btn primary" data-act="retry">Ya me invitaron, reintentar</button><button class="btn" data-act="logout">Cerrar sesión</button></div></div></div>`;
@@ -923,7 +927,7 @@ function render() {
     : `<span>${esc(empresa().nombre)}</span>`;
   const pillOf = x => (x[2] ? `<span class="pill ${x[3] ? 'bad' : 'warn'}">${x[2]}</span>` : '');
   const mobSel = x => x[0] === S.tab || (x[0] === 'mas' && ['rend', 'equipo'].includes(S.tab));
-  $('#app').innerHTML = `<header class="top"><div class="brand">${LOGO}<b>TOP</b><span>Flota</span></div>
+  $('#app').innerHTML = `<header class="top"><div class="brand">${LOGO_FULL}</div>
     <div class="who">${emp}<span class="mail">${esc(S.user.email)}</span><button class="btn small out" data-act="logout">Salir</button></div></header>
     <nav class="tabs" role="tablist">${t.desk.map(x => `<button class="tab" role="tab" aria-selected="${x[0] === S.tab}" data-tab="${x[0]}">${x[1]}${pillOf(x)}</button>`).join('')}</nav>
     <main>${views[S.tab]()}</main>
