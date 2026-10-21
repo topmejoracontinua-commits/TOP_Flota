@@ -250,6 +250,44 @@ td.r, th.r { text-align: right; }
 .note { background: var(--accent-soft); border-radius: 8px; padding: 9px 12px; font-size: 13.5px; }
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
 
+/* selector de posiciones en Nueva venta */
+.pick-grid { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 22px; align-items: start; margin-top: 10px; }
+@media (max-width: 820px) { .pick-grid { grid-template-columns: minmax(0, 1fr); } }
+.tirebtn.pick rect.t { fill: var(--surface); fill-opacity: .6; stroke: var(--ink-3); stroke-width: 2; stroke-dasharray: 4 3; transition: fill .12s; }
+.tirebtn.pick.on rect.t { fill: var(--accent); fill-opacity: 1; stroke: var(--tire); stroke-dasharray: none; stroke-width: 2.5; }
+.tirebtn.pick:hover rect.t { stroke: var(--accent); stroke-width: 3; }
+.tirebtn.pick:focus-visible rect.t { stroke: var(--ink); stroke-width: 4; }
+#poscount { font-size: 13px; margin-left: 4px; }
+
+/* ingreso: negro, tonos suaves */
+.spin { position: fixed; inset: 0; background: #0b0b0c; color: #8a8a93; display: grid; place-items: center; padding: 0; }
+.lp { position: fixed; inset: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 24px 0;
+  background: radial-gradient(900px 420px at 50% -8%, #1b1b1f 0, #0b0b0c 62%); color: #e9e9ec; }
+.lp .login { margin: 0; width: 100%; max-width: 400px; padding-inline: 20px; }
+.lp .brand { color: #f2f2f3; margin-bottom: 26px; }
+.lp .panel { background: #121214; border: 1px solid #232327; box-shadow: 0 24px 60px rgba(0,0,0,.55); color: #e9e9ec; padding: 30px 28px 24px; }
+.lp h1 { color: #f2f2f3; font-weight: 600; letter-spacing: -.01em; }
+.lp .muted { color: #8a8a93; }
+.lp .field label { color: #a1a1aa; font-weight: 500; }
+.lp .field input { background: #19191c; border-color: #2a2a2f; color: #f0f0f2; }
+.lp .field input::placeholder { color: #5c5c65; }
+.lp .field input:focus { border-color: #d71920; box-shadow: 0 0 0 3px rgba(215,25,32,.18); }
+.lp input:-webkit-autofill { -webkit-text-fill-color: #f0f0f2; caret-color: #fff; box-shadow: 0 0 0 100px #19191c inset; transition: background-color 9999s; }
+.lp .btn { background: #19191c; border-color: #2a2a2f; color: #e9e9ec; box-shadow: none; }
+.lp .btn:hover { border-color: #55555d; }
+.lp .btn.primary { background: #d71920; border-color: #d71920; color: #fff; margin-top: 4px; }
+.lp .btn.primary:hover { background: #bd151b; border-color: #bd151b; }
+.lp .msg.err { background: rgba(255,90,90,.1); color: #ff9c9c; }
+.lp .msg.ok { background: rgba(76,193,127,.1); color: #6fd49c; }
+.lp .divider { display: flex; align-items: center; gap: 14px; margin: 22px 0 6px; color: #5c5c65; font-size: 12px; }
+.lp .divider::before, .lp .divider::after { content: ""; flex: 1; height: 1px; background: #232327; }
+.ghostlink { display: block; width: 100%; background: none; border: 0; padding: 10px 0; text-align: center; color: #8a8a93; font-size: 14.5px; cursor: pointer; transition: color .15s; }
+.ghostlink:hover { color: #f2f2f3; }
+.ghostlink i { font-style: italic; letter-spacing: .01em; }
+.lp-foot { text-align: center; color: #55555d; font-size: 12px; margin: 22px 0 0; letter-spacing: .04em; }
+.field label input[type=checkbox] { width: 18px; height: 18px; padding: 0; margin: 0 8px 0 0; vertical-align: -4px; accent-color: var(--accent); }
+.field label:has(input[type=checkbox]) { display: flex; align-items: center; cursor: pointer; }
+
 </style>
 </head>
 <body>
@@ -409,7 +447,7 @@ function authErr(e) {
 }
 function showLogin(o = {}) {
   const mode = o.mode || 'in';
-  $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO_FULL}</div>
+  $('#app').innerHTML = `<div class="lp"><div class="login"><div class="brand">${LOGO_FULL}</div>
     <div class="panel"><h1>${mode === 'in' ? 'Ingresar' : 'Crear cuenta'}</h1>
     <p class="muted" style="margin:0">${mode === 'in' ? 'Seguimiento de cubiertas por flota.' : 'Usá el mismo mail con el que te invitó TOP Neumáticos.'}</p>
     ${o.msg ? `<div class="msg ${o.msg.t}" style="margin-top:14px">${esc(o.msg.m)}</div>` : ''}
@@ -418,14 +456,15 @@ function showLogin(o = {}) {
       <div class="field"><label for="a-pass">Contraseña</label><input id="a-pass" type="password" autocomplete="${mode === 'in' ? 'current-password' : 'new-password'}" minlength="8" required></div>
       <button class="btn primary" type="submit">${mode === 'in' ? 'Ingresar' : 'Crear cuenta'}</button>
     </form>
-    <button class="linkbtn" data-act="authmode" data-mode="${mode === 'in' ? 'up' : 'in'}">${mode === 'in' ? 'Me invitaron: crear mi cuenta' : 'Ya tengo cuenta: ingresar'}</button>
-    </div></div>`;
+    <div class="divider"><span>o</span></div>
+    <button class="ghostlink" data-act="authmode" data-mode="${mode === 'in' ? 'up' : 'in'}"><i>${mode === 'in' ? 'Me invitaron: crear mi cuenta' : 'Ya tengo cuenta: ingresar'}</i></button>
+    </div><p class="lp-foot">Un servicio de TOP Neumáticos</p></div></div>`;
 }
 function showSpin(t) { $('#app').innerHTML = `<div class="spin">${esc(t || 'Cargando…')}</div>`; }
 function showProblem(title, text, retry) {
-  $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO_FULL}</div><div class="panel">
+  $('#app').innerHTML = `<div class="lp"><div class="login"><div class="brand">${LOGO_FULL}</div><div class="panel">
     <h1 style="font-size:30px">${esc(title)}</h1><p class="muted">${esc(text)}</p>
-    <div class="row">${retry ? '<button class="btn primary" data-act="retry">Reintentar</button>' : ''}<button class="btn" data-act="logout">Cerrar sesión</button></div></div></div>`;
+    <div class="row">${retry ? '<button class="btn primary" data-act="retry">Reintentar</button>' : ''}<button class="btn" data-act="logout">Cerrar sesión</button></div></div></div></div>`;
 }
 
 async function doAuth(form) {
@@ -455,10 +494,10 @@ async function afterLogin() {
     S.members = m.data; S.access = a.data;
     S.role = m.data.length ? 'staff' : a.data.length ? 'portal' : null;
     if (!S.role) {
-      $('#app').innerHTML = `<div class="login"><div class="brand">${LOGO_FULL}</div><div class="panel">
+      $('#app').innerHTML = `<div class="lp"><div class="login"><div class="brand">${LOGO_FULL}</div><div class="panel">
         <h1 style="font-size:30px">Todavía no tenés acceso</h1>
         <p class="muted">Pedile a TOP Neumáticos que te invite con este mail: <b>${esc(S.user.email)}</b>. Cuando lo haga, volvé a ingresar.</p>
-        <div class="row"><button class="btn primary" data-act="retry">Ya me invitaron, reintentar</button><button class="btn" data-act="logout">Cerrar sesión</button></div></div></div>`;
+        <div class="row"><button class="btn primary" data-act="retry">Ya me invitaron, reintentar</button><button class="btn" data-act="logout">Cerrar sesión</button></div></div></div></div>`;
       return;
     }
     const ids = [...new Set((S.role === 'staff' ? S.members : S.access).map(x => x.empresa_id))];
@@ -550,13 +589,41 @@ function viewFlota() {
 }
 
 /* ---------- Esquema de ejes ---------- */
+function bodySvg(v, nAx, top, gap, cab, spineTop, spineBot) {
+  const txt = 'font:600 10px var(--f-mono)', ln = 'fill:var(--surface);stroke:var(--ink-3);stroke-width:1.5', soft = 'fill:none;stroke:var(--ink-3);stroke-width:1.2;stroke-dasharray:5 4';
+  let s = '';
+  if (cab) {
+    s += `<rect x="152" y="${spineTop}" width="56" height="${spineBot - spineTop}" rx="6" style="${ln}"/>`;
+    s += `<line x1="164" y1="${spineTop + 14}" x2="164" y2="${spineBot - 8}" style="stroke:var(--line);stroke-width:2"/><line x1="196" y1="${spineTop + 14}" x2="196" y2="${spineBot - 8}" style="stroke:var(--line);stroke-width:2"/>`;
+    if (v.tipo === 'tractor') s += `<circle cx="180" cy="${top + gap * (nAx - 1.5) + 31}" r="23" style="fill:var(--surface-2);stroke:var(--ink-3);stroke-width:1.5"/><path d="M180 ${top + gap * (nAx - 1.5) + 31}l-8 24h16z" style="fill:var(--road)"/>`;
+    else s += `<rect x="126" y="${spineTop + 18}" width="108" height="${spineBot - spineTop - 12}" rx="8" style="${soft}"/>`;
+    s += `<rect x="104" y="30" width="10" height="24" rx="3" style="${ln}"/><rect x="246" y="30" width="10" height="24" rx="3" style="${ln}"/>`;
+    s += `<rect x="116" y="12" width="128" height="66" rx="16" style="${ln}"/><rect x="127" y="20" width="106" height="20" rx="7" style="fill:var(--road);stroke:var(--ink-3);stroke-width:1"/>`;
+    s += `<text x="180" y="62" text-anchor="middle" style="${txt};fill:var(--ink-3)">FRENTE</text>`;
+  } else {
+    const acop = v.tipo === 'acoplado';
+    s += `<rect x="128" y="${acop ? 30 : 20}" width="104" height="${spineBot - (acop ? 30 : 20) + 6}" rx="8" style="${ln}"/>`;
+    s += `<line x1="146" y1="${acop ? 44 : 34}" x2="146" y2="${spineBot - 6}" style="stroke:var(--line);stroke-width:2"/><line x1="214" y1="${acop ? 44 : 34}" x2="214" y2="${spineBot - 6}" style="stroke:var(--line);stroke-width:2"/>`;
+    s += acop ? `<line x1="180" y1="14" x2="180" y2="30" style="stroke:var(--ink-3);stroke-width:4"/><circle cx="180" cy="12" r="5" style="${ln}"/>`
+              : `<circle cx="180" cy="36" r="7" style="fill:var(--surface-2);stroke:var(--ink-3);stroke-width:1.5"/>`;
+    s += `<text x="180" y="9" text-anchor="middle" style="${txt};fill:var(--ink-3)">FRENTE</text>`;
+  }
+  return s;
+}
+/* dibujo del vehiculo; tireG(code,x,y,w,h,rx,labelY,mmY) devuelve cada posicion */
+function drawVeh(v, tireG) {
+  const ax = axles(v.configuracion), cab = hasCab(v), top = cab ? 108 : 52, gap = 104, H = top + ax.length * gap + 70;
+  const spineTop = cab ? 70 : 14, spineBot = top + (ax.length - 1) * gap + 52;
+  let s = `<svg viewBox="0 0 360 ${H}" role="group" aria-label="Esquema de ejes de ${esc(v.patente || tipoLabel(v.tipo))}">`;
+  s += bodySvg(v, ax.length, top, gap, cab, spineTop, spineBot);
+  ax.forEach((a, i) => {
+    const y = top + i * gap, xs = a.tires.map(t => t.x);
+    s += `<line x1="${Math.min(...xs) + 17}" y1="${y + 31}" x2="${Math.max(...xs) + 17}" y2="${y + 31}" style="stroke:var(--ink-2);stroke-width:3"/>`;
+    a.tires.forEach(p => { s += tireG(p.c, p.x, y, 34, 62, 7, y + 26, y + 45); });
+  });
+  return s + tireG('AUX', 158, H - 58, 44, 44, 22, H - 58 + 20, H - 58 + 34) + '</svg>';
+}
 function diagram(v) {
-  const ax = axles(v.configuracion), cab = hasCab(v), top = cab ? 108 : 44, gap = 104, H = top + ax.length * gap + 70;
-  const spineTop = cab ? 70 : 14, spineBot = top + (ax.length - 1) * gap + 52, txt = 'font:600 10px var(--f-mono)';
-  let s = `<svg viewBox="0 0 360 ${H}" role="group" aria-label="Esquema de ejes de ${esc(v.patente)}">`;
-  s += `<rect x="152" y="${spineTop}" width="56" height="${spineBot - spineTop}" rx="6" style="fill:var(--surface);stroke:var(--ink-3);stroke-width:1.5"/>`;
-  if (cab) s += `<rect x="116" y="12" width="128" height="66" rx="14" style="fill:var(--surface);stroke:var(--ink-3);stroke-width:1.5"/><text x="180" y="50" text-anchor="middle" style="${txt};fill:var(--ink-3)">FRENTE</text>`;
-  else s += `<text x="180" y="9" text-anchor="middle" style="${txt};fill:var(--ink-3)">FRENTE</text>`;
   const tireG = (code, x, y, w, h, rx, labelY, mmY) => {
     const inst = activeAt(v, code), sel = S.code === code;
     let g = `<g class="tirebtn${sel ? ' sel' : ''}" data-code="${code}" tabindex="0" role="button" aria-label="${code === 'AUX' ? 'Auxilio' : 'Posición ' + code}${inst ? '' : ', vacía'}">`;
@@ -571,12 +638,7 @@ function diagram(v) {
     }
     return g + '</g>';
   };
-  ax.forEach((a, i) => {
-    const y = top + i * gap, xs = a.tires.map(t => t.x);
-    s += `<line x1="${Math.min(...xs) + 17}" y1="${y + 31}" x2="${Math.max(...xs) + 17}" y2="${y + 31}" style="stroke:var(--ink-2);stroke-width:3"/>`;
-    a.tires.forEach(p => { s += tireG(p.c, p.x, y, 34, 62, 7, y + 26, y + 45); });
-  });
-  return s + tireG('AUX', 158, H - 58, 44, 44, 22, H - 58 + 20, H - 58 + 34) + '</svg>';
+  return drawVeh(v, tireG);
 }
 function openVeh(id) {
   S.vehId = id; const v = S.ix.veh[id], inf = infoOfVeh(v);
@@ -828,14 +890,32 @@ function viewVenta() {
       ${dl('dl-marca', uniq('marca'))}${dl('dl-modelo', uniq('modelo'))}${dl('dl-medida', uniq('medida'))}
       <hr class="sep">
       <div class="label">Dónde se monta cada cubierta</div>
-      <p class="hint">Marcá las posiciones que se instalan hoy. La serie o el DOT es opcional y se puede completar después.</p>
-      <div id="poslist" class="form"></div>
+      <p class="hint">Tocá en el dibujo las posiciones que se instalan hoy. El dibujo cambia según el tipo de vehículo y la configuración de ejes.</p>
+      <div class="pick-grid">
+        <div><div id="sketch" class="diagram"></div>
+          <div class="row" style="margin-top:10px"><button type="button" class="btn small" data-act="allpos">Marcar todas</button><button type="button" class="btn small" data-act="nopos">Ninguna</button><span id="poscount" class="muted"></span></div></div>
+        <div><div class="label">Serie / DOT por cubierta (opcional)</div><div id="poslist" class="form" style="margin-top:8px"></div></div></div>
       <hr class="sep"><button class="btn primary" type="submit">Guardar venta y abrir seguimiento</button>
     </form>`;
 }
 function posList() {
   const codes = codesOf($('#s-conf').value).concat('AUX');
   $('#poslist').innerHTML = codes.map(c => `<div class="field"><label><input type="checkbox" name="pos" value="${c}"${c === 'AUX' ? '' : ' checked'}> ${c === 'AUX' ? 'Auxilio' : 'Posición ' + c}</label><input class="mono" data-serie="${c}" placeholder="Serie / DOT" aria-label="Serie de ${c}" autocomplete="off"></div>`).join('');
+  drawSketch();
+}
+function drawSketch() {
+  const box = $('#sketch'); if (!box) return;
+  const v = { tipo: $('#s-tipo').value, configuracion: $('#s-conf').value };
+  const sel = new Set([...document.querySelectorAll('#poslist [name=pos]:checked')].map(x => x.value));
+  const tireG = (code, x, y, w, h, rx, labelY) => {
+    const on = sel.has(code);
+    return `<g class="tirebtn pick${on ? ' on' : ''}" data-pos="${code}" tabindex="0" role="checkbox" aria-checked="${on}" aria-label="${code === 'AUX' ? 'Auxilio' : 'Posición ' + code}">
+      <rect class="t${on ? '' : ' vac'}" x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/>
+      <text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle" style="font:700 10px var(--f-mono);fill:${on ? '#fff' : 'var(--ink-3)'}">${code}</text></g>`;
+  };
+  box.innerHTML = drawVeh(v, tireG);
+  const total = document.querySelectorAll('#poslist [name=pos]').length;
+  $('#poscount').textContent = sel.size + ' de ' + total + ' posiciones';
 }
 
 /* ---------- Alertas ---------- */
@@ -985,11 +1065,14 @@ const renderMain = render;
 document.addEventListener('click', e => {
   const tabEl = e.target.closest('[data-tab]');
   if (tabEl) { S.tab = tabEl.dataset.tab; S.vehId = null; render(); window.scrollTo(0, 0); return; }
+  const pk = e.target.closest('[data-pos]');
+  if (pk) { const cb = document.querySelector(`#poslist [name=pos][value="${pk.dataset.pos}"]`); if (cb) { cb.checked = !cb.checked; drawSketch(); } return; }
   const g = e.target.closest('[data-code]');
   if (g && S.vehId) { S.code = g.dataset.code; const v = S.ix.veh[S.vehId]; $('.diagram').innerHTML = diagram(v); $('#tirepanel').innerHTML = tirePanel(v); return; }
   const a = e.target.closest('[data-act]'); if (!a) return;
   const act = a.dataset.act;
   if (act === 'openveh') { openVeh(a.dataset.v); S.tab = 'flota'; render(); window.scrollTo(0, 0); }
+  else if (act === 'allpos' || act === 'nopos') { document.querySelectorAll('#poslist [name=pos]').forEach(c => { c.checked = act === 'allpos'; }); drawSketch(); }
   else if (act === 'back') { S.vehId = null; render(); }
   else if (act === 'msg') { S.msg = buildMsg(a.dataset.i); $('#msgbox').innerHTML = msgBox(); }
   else if (act === 'copymsg') {
@@ -1004,14 +1087,15 @@ document.addEventListener('click', e => {
   else if (act === 'delinv') deleteInvite(a.dataset.i);
 });
 document.addEventListener('keydown', e => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-code]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-code],[data-pos]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'q') { S.q = e.target.value; $('#rows').innerHTML = vehRows(); }
 });
 document.addEventListener('change', e => {
   const id = e.target.id, val = e.target.value;
-  if (id === 'emp' || id === 'emp2') changeEmpresa(val);
+  if (e.target.name === 'pos') drawSketch();
+  else if (id === 'emp' || id === 'emp2') changeEmpresa(val);
   else if (id === 'clif') { S.cli = val; $('#rows').innerHTML = vehRows(); }
   else if (id === 'trab') { S.trab = val; render(); }
   else if (id === 's-tipo') { $('#s-conf').value = DEF_CONFIG[val] || '6x2'; posList(); }
