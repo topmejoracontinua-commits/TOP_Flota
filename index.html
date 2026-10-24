@@ -302,6 +302,25 @@ details.more > summary { cursor: pointer; color: var(--ink-2); font-weight: 600;
 .field textarea { resize: vertical; font-size: 14px; }
 @media (max-width: 720px) { .head .btn.desk { display: none; } .stats .stat:nth-child(odd):last-child { grid-column: 1 / -1; } .stats .stat:last-child { grid-column: auto; } }
 
+/* cuantificador */
+.ladrones{display:grid;gap:12px;margin-top:10px}
+.ladron{display:grid;grid-template-columns:1fr 130px 110px;gap:10px;align-items:end;padding:10px 0;border-top:1px solid var(--line)}
+@media(max-width:720px){.ladron{grid-template-columns:1fr 1fr}.ladron>div:first-child{grid-column:1/-1}}
+.rep h2{margin:2px 0;font-size:24px}.rep-head{margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-2)}
+.kpi span{display:block;font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em}
+.kpi b{display:block;font-size:22px;margin-top:2px}.kpi small{color:var(--ink-3)}
+.kpi.big{grid-column:1/-1;background:var(--head);color:var(--head-ink);border-color:var(--head)}.kpi.big span,.kpi.big small{color:#bbb}.kpi.big b{font-size:34px}
+.split{display:flex;height:28px;border-radius:8px;overflow:hidden;margin-bottom:14px;background:var(--line)}
+.split i{display:flex;align-items:center;padding:0 10px;font-style:normal;font-size:12px;color:#fff;background:var(--accent);white-space:nowrap;overflow:hidden}.split i.b{background:#3a3a41}
+.mbar{height:5px;border-radius:3px;background:var(--line);margin-top:4px}.mbar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
+@media print{header.top,.tabsbar,.bottombar,.noprint,#toast{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;box-shadow:none}}
+
+.rtab{width:100%;border-collapse:collapse}.rtab th{text-align:left;font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;padding:8px 6px;border-bottom:1px solid var(--line)}
+.rtab th.r,.rtab td.r{text-align:right}.rtab td{padding:10px 6px;border-bottom:1px solid var(--line);vertical-align:top}.rtab td.r{white-space:nowrap;min-width:120px}
+
 </style>
 </head>
 <body>
@@ -310,8 +329,8 @@ details.more > summary { cursor: pointer; color: var(--ink-2); font-weight: 600;
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script>
 window.TOPFLOTA_CONFIG = {
-  url: 'https://pzhrmgzzrgtgbaaxlvbk.supabase.co',
-  key: 'sb_publishable_NNErWeJyCb2nr_u0Ep2pgQ_UmdWOgC0'
+  url: 'https://ldghtlbtpuaxaxqquxaf.supabase.co',
+  key: 'sb_publishable_wmA_nTiLi2Pe6Cr2HyhTzQ_wFxpKIap'
 };
 </script>
 <script>
@@ -362,8 +381,8 @@ const codesOf = config => axles(config).flatMap(a => a.tires.map(t => t.c));
 /* ---------- estado de la app ---------- */
 const S = {
   user: null, role: null, isAdmin: false, empresas: [], empId: null, members: [], access: [],
-  d: { clientes: [], vehiculos: [], posiciones: [], cubiertas: [], instalaciones: [], inspecciones: [], eventos: [], invitaciones: [] },
-  ix: {}, tab: 'flota', vehId: null, code: null, q: '', cli: '', trab: '', sq: '', sest: '', scli: '', xq: '', xmot: '', xcli: '', recapId: null, delArm: null, msg: '', busy: false
+  d: { clientes: [], vehiculos: [], posiciones: [], cubiertas: [], instalaciones: [], inspecciones: [], eventos: [], invitaciones: [], relevamientos: [] },
+  ix: {}, tab: 'flota', vehId: null, code: null, q: '', cli: '', trab: '', sq: '', sest: '', scli: '', xq: '', xmot: '', xcli: '', recapId: null, relId: null, delRel: null, delArm: null, msg: '', busy: false
 };
 const isStaff = () => S.role === 'staff';
 const fmtId = c => (c.numero !== null && c.numero !== undefined ? 'TF-' + String(c.numero).padStart(5, '0') : (c.qr_codigo || '').slice(0, 6).toUpperCase());
@@ -390,8 +409,10 @@ async function loadData() {
   const names = ['clientes', 'vehiculos', 'posiciones', 'cubiertas', 'instalaciones', 'inspecciones', 'eventos'];
   if (S.role === 'staff') names.push('invitaciones');
   const res = await Promise.all(names.map(fetchAll));
-  S.d = { clientes: [], vehiculos: [], posiciones: [], cubiertas: [], instalaciones: [], inspecciones: [], eventos: [], invitaciones: [] };
+  S.d = { clientes: [], vehiculos: [], posiciones: [], cubiertas: [], instalaciones: [], inspecciones: [], eventos: [], invitaciones: [], relevamientos: [] };
   names.forEach((n, i) => { S.d[n] = res[i].filter(r => r.empresa_id === S.empId); });
+  // el cuantificador es opcional: si todavia no se corrio su SQL, el resto de la app sigue funcionando
+  try { S.d.relevamientos = (await fetchAll('relevamientos')).filter(r => r.empresa_id === S.empId); } catch (e) { S.d.relevamientos = []; }
   buildIndex();
 }
 function buildIndex() {
@@ -1286,9 +1307,172 @@ function viewMas() {
     <div class="panel" style="display:grid;gap:10px">
       <div class="ro">Sesión: <b>${esc(S.user.email)}</b>${staff ? ' · ' + (S.isAdmin ? 'administrador' : 'personal') : ' · cliente'}</div>
       ${S.empresas.length > 1 ? `<div class="field"><label for="emp2">Empresa</label><select id="emp2">${S.empresas.map(e => `<option value="${e.id}"${e.id === S.empId ? ' selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></div>` : ''}
-      <button class="btn" data-tab="scrap">Scrap (cubiertas dadas de baja)</button>${staff ? '<button class="btn" data-tab="stock">Stock de los clientes</button><button class="btn" data-tab="rend">Rendimiento por marca</button><button class="btn" data-tab="equipo">Equipo y accesos</button>' : ''}
+      <button class="btn" data-tab="scrap">Scrap (cubiertas dadas de baja)</button>${staff ? '' : '<button class="btn" data-tab="cuant">Informes</button>'}${staff ? '<button class="btn" data-tab="cuant">Cuantificador de pérdidas</button><button class="btn" data-tab="stock">Stock de los clientes</button><button class="btn" data-tab="rend">Rendimiento por marca</button><button class="btn" data-tab="equipo">Equipo y accesos</button>' : ''}
       <button class="btn" data-act="logout">Cerrar sesión</button></div>`;
 }
+
+/* TOP Flota - cuantificador de perdidas: los 5 "ladrones de km" traducidos a dinero */
+const LADRONES = [
+  ['alin', 'Alineación incorrecta', 'Desgaste irregular por convergencia/caída fuera de tolerancia.'],
+  ['bal', 'Balanceo incorrecto', 'Desgaste en picos o ondulado por ruedas desbalanceadas.'],
+  ['pres', 'Control de presión inadecuado', 'Presión fuera de la recomendada, por defecto o por exceso.'],
+  ['dis', 'Diseño de banda inadecuado', 'Banda no apta para el eje o el tipo de servicio.'],
+  ['emp', 'Emparejamiento incorrecto', 'Duales con diferencia de diámetro o de profundidad.']
+];
+const REL_DEF = {
+  veh: '', neum_veh: 18, analizados: '',
+  n_alin: 0, n_bal: 0, n_pres: 0, n_dis: 0, n_emp: 0,
+  x_alin: 10, x_bal: 10, x_pres: 10, x_dis: 40, x_emp: 10,
+  precio_neum: '', precio_litro: '', consumo: '', km_mes: '', vida: 12,
+  alin_grado: '1.5', f_pres: 6, f_alin15: 7, f_alin25: 16
+};
+const pn = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+const money = n => '$ ' + fmt(n);
+
+/* Motor de calculo. Todo el resultado es anual. */
+function cuantificar(raw) {
+  const p = { ...REL_DEF, ...raw };
+  const veh = pn(p.veh), nv = pn(p.neum_veh), an = pn(p.analizados), vida = pn(p.vida), precio = pn(p.precio_neum);
+  if (!(veh > 0 && nv > 0 && an > 0 && vida > 0 && precio > 0)) return null;
+  const total = veh * nv, ciclos = 12 / vida;
+  const items = LADRONES.map(([k, nombre]) => {
+    const casos = Math.min(pn(p['n_' + k]), an), prev = casos / an, x = Math.min(0.9, pn(p['x_' + k]) / 100);
+    const afectadas = prev * total;
+    const porNeum = precio * x / (1 - x);            // costo de haber perdido x de la vida: precio/(1-x) - precio
+    return { k, nombre, casos, prev, x, afectadas, porNeum, anual: afectadas * porNeum * ciclos };
+  });
+  const cubiertas = items.reduce((s, i) => s + i.anual, 0);
+  const costoComb = pn(p.precio_litro) * pn(p.consumo) / 100 * pn(p.km_mes) * 12;   // combustible por vehiculo por año
+  const prev = k => items.find(i => i.k === k).prev;
+  const fAlin = pn(p.alin_grado === '2.5' ? p.f_alin25 : p.f_alin15) / 100;
+  const combPres = costoComb * pn(p.f_pres) / 100 * prev('pres') * veh;
+  const combAlin = costoComb * fAlin * prev('alin') * veh;
+  const combustible = combPres + combAlin;
+  const total$ = cubiertas + combustible;
+  const kmAnio = veh * pn(p.km_mes) * 12;
+  return {
+    items, cubiertas, combustible, combPres, combAlin, total: total$,
+    pctCub: total$ ? cubiertas / total$ : 0, pctComb: total$ ? combustible / total$ : 0,
+    mensual: total$ / 12, porVeh: total$ / veh, equivalentes: total$ / precio, porKm: kmAnio ? total$ / kmAnio : null,
+    muestra: an, flota: total, cobertura: an / total, tieneComb: costoComb > 0
+  };
+}
+
+/* ---------- informe (se usa en pantalla, en el portal y al imprimir) ---------- */
+function informe(r, res, p) {
+  if (!res) return '<div class="empty">Completá la flota, los neumáticos relevados y el precio del neumático para ver el resultado.</div>';
+  const cli = S.ix.cli[r.cliente_id] || {}, max = Math.max(...res.items.map(i => i.anual), 1);
+  const bars = res.items.map(i => `<tr><td data-l="Ladrón de km"><b>${esc(i.nombre)}</b><br><span class="muted fine">${fmt(i.casos)} casos (${Math.round(i.prev * 100)}%) · pierde ${Math.round(i.x * 100)}% de la vida</span></td>
+      <td class="r num" data-l="Pérdida anual"><b>${money(i.anual)}</b><div class="mbar"><i style="width:${Math.round(i.anual / max * 100)}%"></i></div></td></tr>`).join('');
+  const comb = res.tieneComb ? `<tr><td data-l="Combustible"><b>Combustible extra</b><br><span class="muted">Presión: ${money(res.combPres)} · Alineación (${esc(p.alin_grado)}°): ${money(res.combAlin)}. Estimado con valores de referencia, no medido.</span></td><td class="r num" data-l="Pérdida anual"><b>${money(res.combustible)}</b></td></tr>` : '';
+  return `<div class="rep">
+    <div class="rep-head"><div><div class="label">Informe de pérdidas por kilómetros perdidos</div><h2>${esc(cli.razon_social || '')}</h2><div class="muted">${esc(r.fecha)}${r.asesor ? ' · Asesor: ' + esc(r.asesor) : ''}</div></div></div>
+    <div class="kpis"><div class="kpi big"><span>Pérdida anual estimada</span><b>${money(res.total)}</b><small>${money(res.mensual)} por mes</small></div>
+      <div class="kpi"><span>Por vehículo</span><b>${money(res.porVeh)}</b><small>al año</small></div>
+      <div class="kpi"><span>Equivale a</span><b>${fmt(res.equivalentes)}</b><small>neumáticos nuevos</small></div>
+      ${res.porKm !== null ? `<div class="kpi"><span>Por kilómetro</span><b>$ ${res.porKm.toFixed(2).replace('.', ',')}</b><small>recorrido</small></div>` : ''}</div>
+    <div class="split"><i style="width:${Math.round(res.pctCub * 100)}%">Cubiertas ${Math.round(res.pctCub * 100)}%</i>${res.pctComb > 0 ? `<i class="b" style="width:${Math.round(res.pctComb * 100)}%">Combustible ${Math.round(res.pctComb * 100)}%</i>` : ''}</div>
+    <div class="tablewrap"><table class="rtab"><thead><tr><th>Ladrón de km</th><th class="r">Pérdida anual</th></tr></thead>
+    <tbody>${bars}<tr class="sub"><td><b>Subtotal cubiertas</b></td><td class="r num"><b>${money(res.cubiertas)}</b></td></tr>${comb}</tbody></table></div>
+    <p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${Math.round(res.cobertura * 100)}%); los casos se proyectan al total. Una cubierta que pierde una fracción x de su vida cuesta precio × x / (1 − x). Importes anuales en pesos a los precios cargados.</p></div>`;
+}
+
+/* ---------- pantallas ---------- */
+function relTotal(r) { const res = r.estado === 'cerrado' && r.resultado ? r.resultado : cuantificar(r.parametros || {}); return res; }
+function viewCuant() {
+  if (S.relId) { const r = S.d.relevamientos.find(x => x.id === S.relId); if (r) return viewRel(r); S.relId = null; }
+  const staff = isStaff(), list = S.d.relevamientos.slice().sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+    .filter(r => staff || r.estado === 'cerrado');
+  const rows = list.map(r => { const res = relTotal(r), cli = S.ix.cli[r.cliente_id];
+    return `<tr><td data-l="Cliente"><b>${esc(cli ? cli.razon_social : '—')}</b></td><td data-l="Fecha" class="num">${esc(r.fecha)}</td>
+      <td data-l="Estado"><span class="pill ${r.estado === 'cerrado' ? 'ok' : 'warn'}">${r.estado === 'cerrado' ? 'Cerrado' : 'Abierto'}</span></td>
+      <td class="r num" data-l="Pérdida anual">${res ? money(res.total) : '—'}</td>
+      <td class="r nolabel"><button class="btn small" data-act="relopen" data-r="${r.id}">Abrir</button></td></tr>`; }).join('');
+  const form = staff ? `<form class="panel" data-form="relnew"><div class="label">Relevamiento nuevo</div><div class="form" style="margin-top:10px">
+      <div class="field wide"><label for="rn-cli">Cliente</label><select id="rn-cli" required><option value="">Elegir…</option>${S.d.clientes.slice().sort((a, b) => a.razon_social.localeCompare(b.razon_social)).map(c => `<option value="${c.id}">${esc(c.razon_social)}</option>`).join('')}</select></div>
+      <div class="field"><label for="rn-fecha">Fecha</label><input id="rn-fecha" type="date" value="${today()}" required></div>
+      <div class="field"><label for="rn-asesor">Asesor</label><input id="rn-asesor" autocomplete="off"></div>
+      <div class="field wide"><button class="btn primary" type="submit">Crear relevamiento</button></div></div></form>` : '';
+  return `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>${staff ? 'Cuantificador' : 'Informes'}</h1></div></div>
+    <div class="cols"><div class="panel"><div class="tablewrap"><table class="cards"><thead><tr><th>Cliente</th><th>Fecha</th><th>Estado</th><th class="r">Pérdida anual</th><th></th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="5" class="empty">${staff ? 'Todavía no hay relevamientos. Creá el primero con el formulario.' : 'Todavía no hay informes publicados.'}</td></tr>`}</tbody></table></div></div>${form}</div>`;
+}
+function relField(p, k, label, o = {}) {
+  return `<div class="field${o.wide ? ' wide' : ''}"><label for="rp-${k}">${label}</label><input id="rp-${k}" data-k="${k}" inputmode="decimal" autocomplete="off" value="${esc(p[k] ?? '')}"${o.ph ? ` placeholder="${o.ph}"` : ''}></div>`;
+}
+function viewRel(r) {
+  const staff = isStaff(), back = `<button class="btn small" data-act="relback">← Volver</button>`;
+  if (!staff || r.estado === 'cerrado') {
+    return `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>Informe</h1></div><div class="row noprint">${back}<button class="btn small" data-act="relprint">Imprimir / PDF</button>${staff ? '<button class="btn small" data-act="relreopen" data-r="' + r.id + '">Reabrir</button>' : ''}</div></div>
+      <div class="panel">${informe(r, r.resultado, r.parametros || {})}${r.notas ? `<p style="margin-top:12px">${esc(r.notas)}</p>` : ''}</div>`;
+  }
+  const p = { ...REL_DEF, ...(r.parametros || {}) };
+  const lad = LADRONES.map(([k, n, d]) => `<div class="ladron"><div><b>${n}</b><div class="muted fine">${d}</div></div>
+      ${relField(p, 'n_' + k, 'Neumáticos con el problema')}${relField(p, 'x_' + k, '% de vida perdida')}</div>`).join('');
+  return `<div class="head"><div><div class="label">${esc(S.ix.cli[r.cliente_id]?.razon_social || '')}</div><h1>Relevamiento</h1></div><div class="row noprint">${back}</div></div>
+    <div class="cols"><form class="panel" id="relform" data-form="relsave" data-r="${r.id}">
+      <div class="label">Datos</div><div class="form" style="margin:10px 0 16px">
+        <div class="field"><label for="rp-fecha">Fecha</label><input id="rp-fecha" type="date" value="${esc(r.fecha)}"></div>
+        <div class="field"><label for="rp-asesor">Asesor</label><input id="rp-asesor" value="${esc(r.asesor || '')}"></div></div>
+      <div class="label">Flota y muestra</div><div class="form" style="margin:10px 0 16px">
+        ${relField(p, 'veh', 'Vehículos de la flota')}${relField(p, 'neum_veh', 'Neumáticos por vehículo')}${relField(p, 'analizados', 'Neumáticos relevados (muestra)', { wide: true })}</div>
+      <div class="label">Ladrones de km relevados</div><div class="ladrones">${lad}</div>
+      <div class="label" style="margin-top:16px">Costos y uso</div><div class="form" style="margin:10px 0 16px">
+        ${relField(p, 'precio_neum', 'Precio del neumático ($)')}${relField(p, 'vida', 'Vida útil (meses)')}
+        ${relField(p, 'precio_litro', 'Precio del litro ($)')}${relField(p, 'consumo', 'Consumo (l/100 km)')}${relField(p, 'km_mes', 'Km por mes por vehículo', { wide: true })}</div>
+      <div class="label">Combustible (valores de referencia)</div><div class="form" style="margin:10px 0 16px">
+        <div class="field"><label for="rp-alin_grado">Desalineación típica</label><select id="rp-alin_grado" data-k="alin_grado"><option value="1.5"${p.alin_grado === '1.5' ? ' selected' : ''}>1,5°</option><option value="2.5"${p.alin_grado === '2.5' ? ' selected' : ''}>2,5°</option></select></div>
+        ${relField(p, 'f_pres', '+% consumo por presión')}${relField(p, 'f_alin15', '+% consumo a 1,5°')}${relField(p, 'f_alin25', '+% consumo a 2,5°')}</div>
+      <div class="field"><label for="rp-notas">Notas del asesor</label><textarea id="rp-notas" rows="3">${esc(r.notas || '')}</textarea></div>
+      <div class="row" style="margin-top:14px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" data-act="relclose" data-r="${r.id}">Cerrar y publicar al cliente</button>
+        <button class="btn" type="button" data-act="reldel" data-r="${r.id}">${S.delRel === r.id ? 'Confirmar: eliminar' : 'Eliminar'}</button></div></form>
+      <div class="panel" id="relres">${informe(r, cuantificar(p), p)}</div></div>`;
+}
+
+/* ---------- acciones ---------- */
+function readRel(r) {
+  const p = { ...REL_DEF, ...(r.parametros || {}) };
+  document.querySelectorAll('#relform [data-k]').forEach(el => { p[el.dataset.k] = el.value.trim(); });
+  return p;
+}
+const relOf = id => S.d.relevamientos.find(x => x.id === id);
+function liveRel() {
+  const f = $('#relform'); if (!f) return;
+  const r = relOf(f.dataset.r), p = readRel(r), box = $('#relres');
+  if (box) box.innerHTML = informe({ ...r, fecha: $('#rp-fecha').value, asesor: $('#rp-asesor').value }, cuantificar(p), p);
+}
+async function saveRel(close) {
+  const f = $('#relform'), r = relOf(f.dataset.r), p = readRel(r), res = cuantificar(p);
+  if (close && !res) return toast('Completá flota, muestra y precio del neumático antes de cerrar.');
+  const patch = { parametros: p, fecha: $('#rp-fecha').value || r.fecha, asesor: $('#rp-asesor').value.trim() || null, notas: $('#rp-notas').value.trim() || null };
+  if (close) Object.assign(patch, { estado: 'cerrado', resultado: res, cerrado_en: new Date().toISOString() });
+  return run(async () => { must(await sb.from('relevamientos').update(patch).eq('id', r.id).select('id')); }, close ? 'Informe publicado para el cliente' : 'Relevamiento guardado');
+}
+document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#relform')) liveRel(); });
+document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#relform')) liveRel(); });
+document.addEventListener('submit', e => {
+  const f = e.target;
+  if (f.dataset.form === 'relsave') saveRel(false);
+  else if (f.dataset.form === 'relnew') {
+    run(async () => {
+      const row = must(await sb.from('relevamientos').insert({ empresa_id: S.empId, cliente_id: $('#rn-cli').value, fecha: $('#rn-fecha').value, asesor: $('#rn-asesor').value.trim() || null, parametros: { ...REL_DEF } }).select().single());
+      S.relId = row.id;
+    }, 'Relevamiento creado');
+  }
+});
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const act = a.dataset.act;
+  if (act === 'relopen') { S.relId = a.dataset.r; S.delRel = null; render(); window.scrollTo(0, 0); }
+  else if (act === 'relback') { S.relId = null; S.delRel = null; render(); }
+  else if (act === 'relprint') window.print();
+  else if (act === 'relclose') saveRel(true);
+  else if (act === 'relreopen') run(async () => { must(await sb.from('relevamientos').update({ estado: 'abierto', resultado: null, cerrado_en: null }).eq('id', a.dataset.r).select('id')); }, 'Relevamiento reabierto');
+  else if (act === 'reldel') {
+    if (S.delRel !== a.dataset.r) { S.delRel = a.dataset.r; render(); return; }
+    run(async () => { must(await sb.from('relevamientos').delete().eq('id', a.dataset.r).select('id')); S.relId = null; S.delRel = null; }, 'Relevamiento eliminado');
+  }
+});
 
 /* TOP Flota - estructura de pantalla y eventos */
 const ICON = {
@@ -1305,22 +1489,22 @@ function tabsDef() {
   const al = alertList(), n = al.length, bad = al.some(a => a.i.st === 'bad');
   if (S.role === 'staff') {
     return {
-      desk: [['flota', 'Flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['venta', 'Nueva venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['rend', 'Rendimiento'], ['equipo', 'Equipo']],
+      desk: [['flota', 'Flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['venta', 'Nueva venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['cuant', 'Cuantificador'], ['rend', 'Rendimiento'], ['equipo', 'Equipo']],
       mob: [['flota', 'Flota'], ['venta', 'Venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['mas', 'Más']]
     };
   }
-  return { desk: [['flota', 'Mi flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['alertas', 'Alertas', n, bad]], mob: [['flota', 'Mi flota'], ['stock', 'Stock'], ['alertas', 'Alertas', n, bad], ['mas', 'Más']] };
+  return { desk: [['flota', 'Mi flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['alertas', 'Alertas', n, bad], ['cuant', 'Informes']], mob: [['flota', 'Mi flota'], ['stock', 'Stock'], ['alertas', 'Alertas', n, bad], ['mas', 'Más']] };
 }
 function render() {
   if (!S.user || !S.role) return;
-  const t = tabsDef(), views = { flota: viewFlota, venta: viewVenta, alertas: viewAlertas, clientes: viewClientes, rend: viewRend, equipo: viewEquipo, mas: viewMas, stock: viewStock, scrap: viewScrap, addveh: viewAddVeh };
+  const t = tabsDef(), views = { flota: viewFlota, venta: viewVenta, alertas: viewAlertas, clientes: viewClientes, rend: viewRend, equipo: viewEquipo, mas: viewMas, stock: viewStock, scrap: viewScrap, cuant: viewCuant, addveh: viewAddVeh };
   if (![...t.desk, ...t.mob].some(x => x[0] === S.tab) && S.tab !== 'addveh') S.tab = 'flota';
   const cur = S.tab === 'addveh' ? 'flota' : S.tab;
   const emp = S.empresas.length > 1
     ? `<select id="emp" aria-label="Empresa">${S.empresas.map(e => `<option value="${e.id}"${e.id === S.empId ? ' selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select>`
     : `<span>${esc(empresa().nombre)}</span>`;
   const pillOf = x => (x[2] ? `<span class="pill ${x[3] ? 'bad' : 'warn'}">${x[2]}</span>` : '');
-  const mobSel = x => x[0] === (S.tab === 'addveh' ? 'flota' : S.tab) || (x[0] === 'mas' && ['rend', 'equipo', 'scrap'].includes(S.tab));
+  const mobSel = x => x[0] === (S.tab === 'addveh' ? 'flota' : S.tab) || (x[0] === 'mas' && ['rend', 'equipo', 'scrap', 'cuant'].includes(S.tab));
   $('#app').innerHTML = `<header class="top"><div class="in"><div class="brand">${LOGO_FULL}</div>
     <div class="who">${emp}<span class="mail">${esc(S.user.email)}</span><button class="btn small out" data-act="logout">Salir</button></div></div></header>
     <div class="tabsbar"><nav class="tabs in" role="tablist">${t.desk.map(x => `<button class="tab" role="tab" aria-selected="${x[0] === cur}" data-tab="${x[0]}">${x[1]}${pillOf(x)}</button>`).join('')}</nav></div>
@@ -1335,7 +1519,7 @@ const renderMain = render;
 /* ---------- eventos ---------- */
 document.addEventListener('click', e => {
   const tabEl = e.target.closest('[data-tab]');
-  if (tabEl) { S.tab = tabEl.dataset.tab; S.vehId = null; S.recapId = null; render(); window.scrollTo(0, 0); return; }
+  if (tabEl) { S.tab = tabEl.dataset.tab; S.vehId = null; S.recapId = null; S.relId = null; render(); window.scrollTo(0, 0); return; }
   const pk = e.target.closest('[data-pos]');
   if (pk) { const cb = document.querySelector(`#poslist [name=pos][value="${pk.dataset.pos}"]`); if (cb) { cb.checked = !cb.checked; drawSketch(); } return; }
   const g = e.target.closest('[data-code]');
@@ -1356,7 +1540,7 @@ document.addEventListener('click', e => {
   else if (act === 'salecli') { S.prefCli = a.dataset.c; S.tab = 'venta'; render(); window.scrollTo(0, 0); }
   else if (act === 'invitecli') { S.prefCli = a.dataset.c; S.tab = 'equipo'; render(); window.scrollTo(0, 0); }
   else if (act === 'recap') { S.recapId = a.dataset.c; render(); window.scrollTo(0, 0); }
-  else if (act === 'norecap') { S.recapId = null; render(); }
+  else if (act === 'norecap') { S.recapId = null; S.relId = null; render(); }
   else if (act === 'delstock') { const id = a.dataset.c; if (S.delArm === id) deleteStock(id); else { S.delArm = id; $('#srows').innerHTML = stockRows(); toast('Tocá de nuevo para eliminarla'); } }
   else if (act === 'delinv') deleteInvite(a.dataset.i);
 });
