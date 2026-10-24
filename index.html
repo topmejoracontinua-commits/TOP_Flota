@@ -316,10 +316,22 @@ details.more > summary { cursor: pointer; color: var(--ink-2); font-weight: 600;
 .split i{display:flex;align-items:center;padding:0 10px;font-style:normal;font-size:12px;color:#fff;background:var(--accent);white-space:nowrap;overflow:hidden}.split i.b{background:#3a3a41}
 .mbar{height:5px;border-radius:3px;background:var(--line);margin-top:4px}.mbar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
 tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
-@media print{header.top,.tabsbar,.bottombar,.noprint,#toast{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;box-shadow:none}}
 
-.rtab{width:100%;border-collapse:collapse}.rtab th{text-align:left;font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;padding:8px 6px;border-bottom:1px solid var(--line)}
-.rtab th.r,.rtab td.r{text-align:right}.rtab td{padding:10px 6px;border-bottom:1px solid var(--line);vertical-align:top}.rtab td.r{white-space:nowrap;min-width:120px}
+.printhead,.firmas{display:none}
+.repnotas{margin-top:14px}.repnotas p{margin:4px 0 0;white-space:pre-wrap}
+@media print{
+  @page{size:A4;margin:14mm}
+  :root:root:root:root{--bg:#fff;--surface:#fff;--surface-2:#f3f3f4;--line:#d9d9de;--line-strong:#bbb;--ink:#111;--ink-2:#333;--ink-3:#555;--head:#0c0c0d;--head-ink:#fff;color-scheme:light}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  header.top,.tabsbar,.bottombar,.noprint,#toast,.head,.muted.noprint{display:none!important}
+  body{background:#fff}main{padding:0;max-width:none}.cols{display:block}
+  .panel{border:0;box-shadow:none;padding:0;background:#fff}
+  .printhead{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid var(--accent);padding-bottom:10px;margin-bottom:16px}
+  .printhead .lock{height:34px;width:auto;color:#111}.ph-r{text-align:right;font-size:12px;color:#333}
+  .rep tr,.kpi,.split,.repnotas{break-inside:avoid}
+  .firmas{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:70px;break-inside:avoid;font-size:13px;text-align:center}
+  .firmas i{display:block;border-top:1px solid #111;margin-bottom:6px}.firmas span{color:#555;font-size:12px}
+}
 
 </style>
 </head>
@@ -1371,6 +1383,7 @@ function informe(r, res, p) {
       <td class="r num">${fmt(i.casos)}</td><td class="r num">${pct1(i.pctCasos)}</td><td class="r num">${Math.round(i.x * 100)}%</td></tr>`).join('');
   const linea = (t, v, s) => `<tr${s ? ' class="sub"' : ''}><td>${t}</td><td class="r num">${v}</td></tr>`;
   return `<div class="rep">
+    <div class="printhead">${LOGO_FULL}<div class="ph-r"><b>${esc(empresa().nombre || 'TOP Neumáticos')}</b><br>Asistencia técnica a flotas</div></div>
     <div class="rep-head"><div><div class="label">Informe de pérdidas por kilómetros perdidos</div><h2>${esc(cli.razon_social || '')}</h2><div class="muted">${esc(r.fecha)}${r.asesor ? ' · Asesor: ' + esc(r.asesor) : ''}</div></div></div>
     <div class="kpis"><div class="kpi big"><span>Pérdida total proyectada a la flota</span><b>${money(res.d43)}</b><small>en ${fmt(res.vida)} meses de vida útil · ${money(res.mensual)} por mes</small></div>
       <div class="kpi"><span>Por vehículo</span><b>${money(res.porVeh)}</b><small>en el período</small></div>
@@ -1387,7 +1400,9 @@ function informe(r, res, p) {
       ${linea('<b>Pérdida en neumáticos proyectada a la flota</b>', '<b>' + money(res.d32) + '</b>', 1)}
       ${res.tieneComb ? linea('Consumo de combustible por vehículo (vida útil)', money(res.d34)) + linea('Pérdida de combustible por vehículo', money(res.d38)) + linea('<b>Pérdida de combustible proyectada a la flota</b>', '<b>' + money(res.d40) + '</b>', 1) : ''}
       ${linea('<b>Total de pérdidas proyectado a la flota</b>', '<b>' + money(res.d43) + '</b>', 1)}</tbody></table></div>
-    <p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${pct1(res.cobertura)}); el resultado se proyecta al total de la flota.${res.tieneComb ? ' El consumo extra de combustible se estima con valores de referencia, no se mide.' : ''} Importes en pesos a los precios cargados.</p></div>`;
+    <p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${pct1(res.cobertura)}); el resultado se proyecta al total de la flota.${res.tieneComb ? ' El consumo extra de combustible se estima con valores de referencia, no se mide.' : ''} Importes en pesos a los precios cargados.</p>
+    ${r.notas ? `<div class="repnotas"><div class="label">Observaciones del asesor</div><p>${esc(r.notas)}</p></div>` : ''}
+    <div class="firmas"><div><i></i>Asesor TOP Neumáticos<br><span>${esc(r.asesor || '')}</span></div><div><i></i>Por ${esc(cli.razon_social || 'el cliente')}<br><span>Firma, aclaración y cargo</span></div></div></div>`;
 }
 
 /* ---------- pantallas ---------- */
@@ -1420,13 +1435,13 @@ function viewRel(r) {
   const staff = isStaff(), back = `<button class="btn small" data-act="relback">← Volver</button>`;
   if (!staff || r.estado === 'cerrado') {
     return `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>Informe</h1></div><div class="row noprint">${back}<button class="btn small" data-act="relprint">Imprimir / PDF</button>${staff ? '<button class="btn small" data-act="relreopen" data-r="' + r.id + '">Reabrir</button>' : ''}</div></div>
-      <div class="panel">${informe(r, r.resultado, r.parametros || {})}${r.notas ? `<p style="margin-top:12px">${esc(r.notas)}</p>` : ''}</div>`;
+      <div class="panel">${informe(r, r.resultado, r.parametros || {})}</div>`;
   }
   const p = { ...REL_DEF, ...(r.parametros || {}) };
   const lad = LADRONES.map(([k, n, d]) => `<div class="ladron"><div><b>${n}</b><div class="muted fine">${d}</div></div>
       ${relField(p, 'n_' + k, 'Casos encontrados')}${relField(p, 'x_' + k, '% de vida perdida')}</div>`).join('');
-  return `<div class="head"><div><div class="label">${esc(S.ix.cli[r.cliente_id]?.razon_social || '')}</div><h1>Relevamiento</h1></div><div class="row noprint">${back}</div></div>
-    <div class="cols"><form class="panel" id="relform" data-form="relsave" data-r="${r.id}">
+  return `<div class="head"><div><div class="label">${esc(S.ix.cli[r.cliente_id]?.razon_social || '')}</div><h1>Relevamiento</h1></div><div class="row noprint">${back}<button class="btn small" data-act="relprint">Imprimir / PDF</button></div></div>
+    <div class="cols"><form class="panel noprint" id="relform" data-form="relsave" data-r="${r.id}">
       <div class="label">Datos</div><div class="form" style="margin:10px 0 16px">
         <div class="field"><label for="rp-fecha">Fecha</label><input id="rp-fecha" type="date" value="${esc(r.fecha)}"></div>
         <div class="field"><label for="rp-asesor">Asesor</label><input id="rp-asesor" value="${esc(r.asesor || '')}"></div></div>
@@ -1456,7 +1471,7 @@ const relOf = id => S.d.relevamientos.find(x => x.id === id);
 function liveRel() {
   const f = $('#relform'); if (!f) return;
   const r = relOf(f.dataset.r), p = readRel(r), box = $('#relres');
-  if (box) box.innerHTML = informe({ ...r, fecha: $('#rp-fecha').value, asesor: $('#rp-asesor').value }, cuantificar(p), p);
+  if (box) box.innerHTML = informe({ ...r, fecha: $('#rp-fecha').value, asesor: $('#rp-asesor').value, notas: $('#rp-notas').value }, cuantificar(p), p);
 }
 async function saveRel(close) {
   const f = $('#relform'), r = relOf(f.dataset.r), p = readRel(r), res = cuantificar(p);
