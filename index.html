@@ -319,6 +319,9 @@ tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
 
 .printhead,.firmas{display:none}
 .repnotas{margin-top:14px}.repnotas p{margin:4px 0 0;white-space:pre-wrap}
+.cmpbox{margin-top:18px}.cmp.good{color:var(--ok);font-weight:700}.cmp.worse{color:var(--bad);font-weight:700}
+.relbanner{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--head);color:var(--head-ink);border-radius:10px;padding:10px 14px;margin-bottom:14px;border-bottom:3px solid var(--accent)}
+.medres{margin-top:10px;display:grid;gap:4px}.medbox{margin-bottom:0}.anexo{margin-top:18px}
 @media print{
   @page{size:A4;margin:14mm}
   :root:root:root:root{--bg:#fff;--surface:#fff;--surface-2:#f3f3f4;--line:#d9d9de;--line-strong:#bbb;--ink:#111;--ink-2:#333;--ink-3:#555;--head:#0c0c0d;--head-ink:#fff;color-scheme:light}
@@ -328,13 +331,14 @@ tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
   .panel{border:0;box-shadow:none;padding:0;background:#fff}
   .printhead{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid var(--accent);padding-bottom:10px;margin-bottom:16px}
   .printhead .lock{height:34px;width:auto;color:#111}.ph-r{text-align:right;font-size:12px;color:#333}
-  .rep tr,.kpi,.split,.repnotas{break-inside:avoid}
+  .rep tr,.kpi,.split,.repnotas,.cmpbox{break-inside:avoid}.relbanner{display:none!important}.cmp.good{color:#15803d}.cmp.worse{color:#b91c1c}
   .firmas{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:70px;break-inside:avoid;font-size:13px;text-align:center}
   .firmas i{display:block;border-top:1px solid #111;margin-bottom:6px}.firmas span{color:#555;font-size:12px}
 }
 
 .tabgroup{display:inline-flex;align-items:center;padding:0 10px 0 16px;margin-left:6px;border-left:1px solid var(--line-strong);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
 .tabgroup:first-child{border-left:0;margin-left:0;padding-left:0}
+.relbanner .btn:not(.primary){background:transparent;color:#fff;border-color:#555}
 
 </style>
 </head>
@@ -397,7 +401,7 @@ const codesOf = config => axles(config).flatMap(a => a.tires.map(t => t.c));
 const S = {
   user: null, role: null, isAdmin: false, empresas: [], empId: null, members: [], access: [],
   d: { clientes: [], vehiculos: [], posiciones: [], cubiertas: [], instalaciones: [], inspecciones: [], eventos: [], invitaciones: [], relevamientos: [] },
-  ix: {}, tab: 'flota', vehId: null, code: null, q: '', cli: '', trab: '', sq: '', sest: '', scli: '', xq: '', xmot: '', xcli: '', recapId: null, relId: null, delRel: null, delArm: null, msg: '', busy: false
+  ix: {}, tab: 'flota', vehId: null, code: null, q: '', cli: '', trab: '', sq: '', sest: '', scli: '', xq: '', xmot: '', xcli: '', recapId: null, relId: null, delRel: null, relActivo: null, delArm: null, msg: '', busy: false
 };
 const isStaff = () => S.role === 'staff';
 const fmtId = c => (c.numero !== null && c.numero !== undefined ? 'TF-' + String(c.numero).padStart(5, '0') : (c.qr_codigo || '').slice(0, 6).toUpperCase());
@@ -732,6 +736,7 @@ function timeline(c) {
 const uniq = k => [...new Set(S.d.cubiertas.map(c => c[k]).filter(Boolean))].sort();
 function dl(id, arr) { return `<datalist id="${id}">${arr.map(x => `<option value="${esc(x)}">`).join('')}</datalist>`; }
 function tirePanel(v) {
+  if (S.relActivo && isStaff()) return medPanel(v);
   const code = S.code, label = code === 'AUX' ? 'Auxilio' : 'Posición ' + code, inst = activeAt(v, code);
   if (!inst) {
     const stock = S.d.cubiertas.filter(c => c.estado === 'stock' && c.cliente_id === v.cliente_id).sort((x, y) => (x.numero || 0) - (y.numero || 0));
@@ -1020,7 +1025,7 @@ function mountFromStock() {
 /* TOP Flota - stock de cubiertas del cliente y alta de vehiculos */
 const EST = { stock: ['mute', 'En stock'], instalada: ['ok', 'Montada'], en_recapado: ['warn', 'En recapado'], descartada: ['bad', 'Descartada'] };
 const pickCli = () => isStaff() || S.d.clientes.length > 1;
-const cliSelect = (id, all) => `<select id="${id}">${all ? '<option value="">Todos</option>' : ''}${S.d.clientes.map(c => `<option value="${c.id}">${esc(c.razon_social)}</option>`).join('')}</select>`;
+const cliSelect = (id, all) => `<select id="${id}">${all ? '<option value="">Todos</option>' : ''}${S.d.clientes.map(c => `<option value="${c.id}"${S.prefCli === c.id ? ' selected' : ''}>${esc(c.razon_social)}</option>`).join('')}</select>`;
 
 function stockList() {
   const q = (S.sq || '').trim().toUpperCase();
@@ -1340,7 +1345,8 @@ const REL_DEF = {
   n_alin: 0, n_bal: 0, n_pres: 0, n_dis: 0, n_emp: 0,
   x_alin: 10, x_bal: 10, x_pres: 5, x_dis: 40, x_emp: 10,
   precio_neum: '', precio_litro: '', consumo: '', km_mes: '', vida: 12,
-  f_pres: 6, f_alin15: 7, f_alin25: 16, on_pres: 1, on_a15: 0, on_a25: 0
+  f_pres: 6, f_alin15: 7, f_alin25: 16, on_pres: 1, on_a15: 0, on_a25: 0,
+  psi_dir: 120, psi_trac: 110, psi_semi: 110, tol_psi: 10, umb_alin: 2, umb_emp: 3
 };
 const pn = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 const money = n => '$ ' + fmt(n);
@@ -1379,6 +1385,32 @@ function cuantificar(raw) {
   };
 }
 
+
+/* ---------- comparacion con el relevamiento anterior del mismo cliente ---------- */
+function relAnterior(r) {
+  return S.d.relevamientos.filter(x => x.id !== r.id && x.cliente_id === r.cliente_id && x.estado === 'cerrado' && x.resultado && x.fecha < r.fecha)
+    .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))[0] || null;
+}
+function comparar(r, res) {
+  const prev = relAnterior(r); if (!prev || !res) return '';
+  const a = prev.resultado, b = res;
+  const dm = (x, y) => { if (!x) return '—'; const d = (y - x) / x; return (d > 0 ? '+' : '') + (d * 100).toFixed(1).replace('.', ',') + '%'; };
+  const dp = (x, y) => { const d = (y - x) * 100; return (d > 0 ? '+' : '') + d.toFixed(1).replace('.', ',') + ' pp'; };
+  const cls = (x, y) => (y < x - 1e-9 ? 'good' : y > x + 1e-9 ? 'worse' : '');
+  const fila = (t, x, y, fx, d) => `<tr><td>${t}</td><td class="r num">${fx(x)}</td><td class="r num">${fx(y)}</td><td class="r num cmp ${cls(x, y)}">${d(x, y)}</td></tr>`;
+  const filasLad = b.items.map(i => { const o = a.items.find(z => z.k === i.k) || { casos: 0 }; return fila(esc(i.nombre), o.casos / (a.muestra || 1), i.casos / (b.muestra || 1), pct1, dp); }).join('');
+  return `<div class="cmpbox"><div class="label">Comparación con el relevamiento anterior (${esc(prev.fecha)})</div>
+    <div class="tablewrap"><table class="rtab"><thead><tr><th></th><th class="r">Anterior</th><th class="r">Actual</th><th class="r">Variación</th></tr></thead><tbody>
+      ${fila('Neumáticos con problemas', a.g7, b.g7, pct1, dp)}
+      ${fila('Pérdida por vehículo', a.porVeh, b.porVeh, money, dm)}
+      ${fila('Pérdida en neumáticos', a.d32, b.d32, money, dm)}
+      ${fila('Pérdida en combustible', a.d40, b.d40, money, dm)}
+      ${fila('<b>Pérdida total</b>', a.d43, b.d43, money, dm)}
+      <tr class="sub"><td colspan="4"><b>Casos por ladrón de km</b> <span class="muted fine">(% de los neumáticos relevados)</span></td></tr>
+      ${filasLad}</tbody></table></div>
+    <p class="muted fine">Los importes dependen de los precios y la flota cargados en cada relevamiento; el indicador más comparable es el porcentaje de neumáticos con problemas.</p></div>`;
+}
+
 /* ---------- informe (se usa en pantalla, en el portal y al imprimir) ---------- */
 function informe(r, res, p) {
   if (!res) return '<div class="empty">Completá la flota, los neumáticos relevados y el precio del neumático para ver el resultado.</div>';
@@ -1405,6 +1437,8 @@ function informe(r, res, p) {
       ${res.tieneComb ? linea('Consumo de combustible por vehículo (vida útil)', money(res.d34)) + linea('Pérdida de combustible por vehículo', money(res.d38)) + linea('<b>Pérdida de combustible proyectada a la flota</b>', '<b>' + money(res.d40) + '</b>', 1) : ''}
       ${linea('<b>Total de pérdidas proyectado a la flota</b>', '<b>' + money(res.d43) + '</b>', 1)}</tbody></table></div>
     <p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${pct1(res.cobertura)}); el resultado se proyecta al total de la flota.${res.tieneComb ? ' El consumo extra de combustible se estima con valores de referencia, no se mide.' : ''} Importes en pesos a los precios cargados.</p>
+    ${comparar(r, res)}
+    ${medAnexo(res)}
     ${r.notas ? `<div class="repnotas"><div class="label">Observaciones del asesor</div><p>${esc(r.notas)}</p></div>` : ''}
     <div class="firmas"><div><i></i>Asesor TOP Neumáticos<br><span>${esc(r.asesor || '')}</span></div><div><i></i>Por ${esc(cli.razon_social || 'el cliente')}<br><span>Firma, aclaración y cargo</span></div></div></div>`;
 }
@@ -1445,7 +1479,8 @@ function viewRel(r) {
   const lad = LADRONES.map(([k, n, d]) => `<div class="ladron"><div><b>${n}</b><div class="muted fine">${d}</div></div>
       ${relField(p, 'n_' + k, 'Casos encontrados')}${relField(p, 'x_' + k, '% de vida perdida')}</div>`).join('');
   return `<div class="head"><div><div class="label">${esc(S.ix.cli[r.cliente_id]?.razon_social || '')}</div><h1>Relevamiento</h1></div><div class="row noprint">${back}<button class="btn small" data-act="relprint">Imprimir / PDF</button></div></div>
-    <div class="cols"><form class="panel noprint" id="relform" data-form="relsave" data-r="${r.id}">
+    ${medBox(r)}
+    <div class="cols" style="margin-top:16px"><form class="panel noprint" id="relform" data-form="relsave" data-r="${r.id}">
       <div class="label">Datos</div><div class="form" style="margin:10px 0 16px">
         <div class="field"><label for="rp-fecha">Fecha</label><input id="rp-fecha" type="date" value="${esc(r.fecha)}"></div>
         <div class="field"><label for="rp-asesor">Asesor</label><input id="rp-asesor" value="${esc(r.asesor || '')}"></div></div>
@@ -1459,10 +1494,14 @@ function viewRel(r) {
         ${relField(p, 'f_pres', '+% consumo por presión')}${relCheck(p, 'on_pres', 'Incluir presión incorrecta')}
         ${relField(p, 'f_alin15', '+% consumo por alineación 1,5°')}${relCheck(p, 'on_a15', 'Incluir alineación 1,5°')}
         ${relField(p, 'f_alin25', '+% consumo por alineación 2,5°')}${relCheck(p, 'on_a25', 'Incluir alineación 2,5°')}</div>
+      <div class="label">Criterios de medición (valores típicos, editables)</div><div class="form" style="margin:10px 0 16px">
+        ${relField(p, 'psi_dir', 'Presión recomendada: direccional (psi)')}${relField(p, 'psi_trac', 'Presión recomendada: tracción (psi)')}
+        ${relField(p, 'psi_semi', 'Presión recomendada: semi / acoplado (psi)')}${relField(p, 'tol_psi', 'Tolerancia de presión (±%)')}
+        ${relField(p, 'umb_alin', 'Alineación: diferencia entre hombros (mm)')}${relField(p, 'umb_emp', 'Duales: diferencia entre gemelas (mm)')}</div>
       <div class="field"><label for="rp-notas">Notas del asesor</label><textarea id="rp-notas" rows="3">${esc(r.notas || '')}</textarea></div>
       <div class="row" style="margin-top:14px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" data-act="relclose" data-r="${r.id}">Cerrar y publicar al cliente</button>
         <button class="btn" type="button" data-act="reldel" data-r="${r.id}">${S.delRel === r.id ? 'Confirmar: eliminar' : 'Eliminar'}</button></div></form>
-      <div class="panel" id="relres">${informe(r, cuantificar(p), p)}</div></div>`;
+      <div class="panel" id="relres">${informe(r, resultadoRel(r, p), p)}</div></div>`;
 }
 
 /* ---------- acciones ---------- */
@@ -1472,13 +1511,14 @@ function readRel(r) {
   return p;
 }
 const relOf = id => S.d.relevamientos.find(x => x.id === id);
+function resultadoRel(r, p) { const res = cuantificar(p); if (res) res.detalle = medDetalle(medList({ ...r, parametros: p })); return res; }
 function liveRel() {
   const f = $('#relform'); if (!f) return;
   const r = relOf(f.dataset.r), p = readRel(r), box = $('#relres');
-  if (box) box.innerHTML = informe({ ...r, fecha: $('#rp-fecha').value, asesor: $('#rp-asesor').value, notas: $('#rp-notas').value }, cuantificar(p), p);
+  if (box) box.innerHTML = informe({ ...r, fecha: $('#rp-fecha').value, asesor: $('#rp-asesor').value, notas: $('#rp-notas').value }, resultadoRel(r, p), p);
 }
 async function saveRel(close) {
-  const f = $('#relform'), r = relOf(f.dataset.r), p = readRel(r), res = cuantificar(p);
+  const f = $('#relform'), r = relOf(f.dataset.r), p = readRel(r), res = resultadoRel(r, p);
   if (close && !res) return toast('Completá flota, muestra y precio del neumático antes de cerrar.');
   const patch = { parametros: p, fecha: $('#rp-fecha').value || r.fecha, asesor: $('#rp-asesor').value.trim() || null, notas: $('#rp-notas').value.trim() || null };
   if (close) Object.assign(patch, { estado: 'cerrado', resultado: res, cerrado_en: new Date().toISOString() });
@@ -1507,6 +1547,147 @@ document.addEventListener('click', e => {
   else if (act === 'reldel') {
     if (S.delRel !== a.dataset.r) { S.delRel = a.dataset.r; render(); return; }
     run(async () => { must(await sb.from('relevamientos').delete().eq('id', a.dataset.r).select('id')); S.relId = null; S.delRel = null; }, 'Relevamiento eliminado');
+  }
+});
+
+/* TOP Flota - mediciones en campo: el asesor mide neumático por neumático y el sistema arma los casos de cada ladrón de km */
+const MED_DEF = { psi_dir: 120, psi_trac: 110, psi_semi: 110, tol_psi: 10, umb_alin: 2, umb_emp: 3 };
+const medP = r => ({ ...MED_DEF, ...REL_DEF, ...(r.parametros || {}) });
+const ejeTipo = (v, code) => {
+  if (!hasCab(v)) return 'semi';
+  return ((LAYOUTS[v.configuracion] || '')[parseInt(code, 10) - 1] === 'S') ? 'dir' : 'trac';
+};
+const psiRec = (v, code, p) => pn(p['psi_' + ejeTipo(v, code)]);
+const EJE_TXT = { dir: 'eje direccional', trac: 'eje de tracción', semi: 'semirremolque / acoplado' };
+const meanEst = e => (e.length ? e.reduce((s, x) => s + x, 0) / e.length : null);
+
+/* Una fila por neumático medido en el relevamiento (la última medición de cada uno) */
+function medList(r) {
+  const p = medP(r), last = {};
+  S.d.inspecciones.filter(i => i.relevamiento_id === r.id)
+    .sort((a, b) => ((a.creado_en || a.fecha) < (b.creado_en || b.fecha) ? -1 : 1)).forEach(i => { last[i.cubierta_id] = i; });
+  const rows = [];
+  Object.values(last).forEach(i => {
+    const inst = S.ix.inst[i.instalacion_id], c = S.ix.cub[i.cubierta_id]; if (!inst || !c) return;
+    const v = S.ix.veh[inst.vehiculo_id], pos = S.ix.pos[inst.posicion_id]; if (!v || !pos) return;
+    const est = (i.estrias || []).map(Number), depth = est.length ? meanEst(est) : Number(i.profundidad_mm);
+    const rec = psiRec(v, pos.codigo, p), psi = num(i.presion_psi), pr = [];
+    if (psi !== null && rec && Math.abs(psi - rec) / rec * 100 > pn(p.tol_psi)) pr.push('pres');
+    if (est.length >= 2 && Math.abs(est[0] - est[est.length - 1]) >= pn(p.umb_alin)) pr.push('alin');
+    if (i.balanceo) pr.push('bal');
+    if (i.diseno_inadecuado) pr.push('dis');
+    rows.push({ obs: i.observaciones || '', v, c, code: pos.codigo, psi, rec, est, depth, pr, dual: /^\d[ID][EI]$/.test(pos.codigo), at: i.creado_en || i.fecha });
+  });
+  const key = (v, code) => v.id + '|' + code;
+  const byKey = {}; rows.forEach(x => { byKey[key(x.v, x.code)] = x; });
+  rows.forEach(x => {
+    if (!x.dual) return;
+    const o = byKey[key(x.v, x.code[0] + x.code[1] + (x.code[2] === 'E' ? 'I' : 'E'))];
+    if (o && Math.abs(x.depth - o.depth) >= pn(p.umb_emp) && !x.pr.includes('emp')) x.pr.push('emp');
+  });
+  return rows.sort((a, b) => (a.v.patente + a.code < b.v.patente + b.code ? -1 : 1));
+}
+function medContar(rows) {
+  const n = { analizados: rows.length, con_problemas: rows.filter(x => x.pr.length).length };
+  LADRONES.forEach(([k]) => { n['n_' + k] = rows.filter(x => x.pr.includes(k)).length; });
+  return n;
+}
+const medDetalle = rows => rows.filter(x => x.pr.length || x.obs).map(x => ({ o: x.obs, v: x.v.patente, c: x.code, n: x.c.marca + ' ' + (x.c.modelo || ''), psi: x.psi, rec: x.rec, e: x.est, d: Math.round(x.depth * 10) / 10, p: x.pr }));
+
+/* ---------- panel de medicion (reemplaza al panel de la cubierta mientras hay un relevamiento activo) ---------- */
+function medPanel(v) {
+  const r = relOf(S.relActivo), p = medP(r), code = S.code, inst = activeAt(v, code);
+  if (code === 'AUX') return '<div class="panel"><div class="label">Auxilio</div><p class="muted">El auxilio no se mide en el relevamiento.</p></div>';
+  const rec = psiRec(v, code, p), mine = medList(r).find(x => x.v.id === v.id && x.code === code);
+  const c = inst ? S.ix.cub[inst.cubierta_id] : null;
+  const chips = mine ? `<div class="medres">${mine.pr.length ? mine.pr.map(k => `<span class="pill bad">${esc(LADRONES.find(l => l[0] === k)[1])}</span>`).join(' ') : '<span class="pill ok">Sin problemas</span>'}
+      <div class="muted fine">Medido: ${mine.psi ?? '—'} psi (recomendada ${rec}) · estrías ${mine.est.map(mm).join(' / ') || '—'} mm${mine.obs ? ' · ' + esc(mine.obs) : ''}</div></div>` : '';
+  const est = [1, 2, 3, 4].map(n => `<div class="field"><label for="md-e${n}">Estría ${n}${n === 1 ? ' (hombro)' : n === 4 ? ' (hombro)' : ''}</label><input id="md-e${n}" inputmode="decimal" autocomplete="off" required></div>`).join('');
+  const tire = c ? '' : `<div class="field"><label for="md-marca">Marca</label><input id="md-marca" list="dl-marca" required autocomplete="off"></div>
+      <div class="field"><label for="md-modelo">Modelo</label><input id="md-modelo" list="dl-modelo" autocomplete="off"></div>
+      <div class="field"><label for="md-medida">Medida</label><input id="md-medida" list="dl-medida" placeholder="295/80 R22.5" required autocomplete="off"></div>
+      <div class="field"><label for="md-orig">Profundidad nueva (mm)</label><input id="md-orig" inputmode="decimal" value="16" required></div>
+      <div class="field wide"><label for="md-serie">Serie / DOT</label><input id="md-serie" class="mono" placeholder="Opcional" autocomplete="off"></div>`;
+  return `<div class="panel"><div class="label">Posición ${code} · ${EJE_TXT[ejeTipo(v, code)]}</div>
+    <h2 style="font-size:26px">${c ? esc(c.marca) + ' ' + esc(c.modelo || '') : 'Neumático sin cargar'}</h2>
+    ${c ? `<div class="muted"><span class="mono">${fmtId(c)}</span> · ${esc(c.medida)}</div>` : '<p class="muted" style="margin:0">Cargá los datos del neumático y la medición.</p>'}
+    ${chips}
+    <form data-form="med" class="form" style="margin-top:14px">${tire}
+      <div class="field"><label for="md-psi">Presión (psi) · recomendada ${rec}</label><input id="md-psi" inputmode="decimal" required></div>
+      <div class="field"><label for="md-km">Km del vehículo</label><input id="md-km" type="number" inputmode="numeric" value="${v.km_actual}" required></div>
+      <div class="field wide"><div class="label">Profundidad de las 4 estrías (mm), de un hombro al otro</div></div>${est}
+      <div class="field wide"><label for="md-obs">Observaciones</label><input id="md-obs" placeholder="Opcional: corte en el flanco, falta tapa de válvula…" autocomplete="off"></div>
+      <div class="field wide"><label><input type="checkbox" id="md-bal"> Desgaste en picos u ondulado (balanceo)</label></div>
+      <div class="field wide"><label><input type="checkbox" id="md-dis"> Diseño de banda inadecuado para este eje / servicio</label></div>
+      <div class="field wide"><button class="btn primary" type="submit">${mine ? 'Volver a medir ' : 'Guardar medición de '}${code}</button></div></form>
+    ${dl('dl-marca', uniq('marca'))}${dl('dl-modelo', uniq('modelo'))}${dl('dl-medida', uniq('medida'))}</div>`;
+}
+async function saveMed() {
+  const r = relOf(S.relActivo), v = S.ix.veh[S.vehId], code = S.code, pos = (S.ix.posByVeh[v.id] || {})[code], inst = activeAt(v, code);
+  if (!r || !pos) return toast('No se encontró la posición ' + code + '.');
+  const est = [1, 2, 3, 4].map(n => decimal($('#md-e' + n).value));
+  if (est.some(x => !(x >= 0 && x <= 40))) return toast('Cargá las 4 estrías en mm (entre 0 y 40).');
+  const psi = decimal($('#md-psi').value), km = Number($('#md-km').value);
+  if (!(psi > 0)) return toast('Cargá la presión en psi.');
+  if (!(km >= v.km_actual)) return toast('El km no puede ser menor al último conocido (' + fmt(v.km_actual) + ').');
+  const prof = Math.round(meanEst(est) * 10) / 10;
+  let orig = null;
+  if (!inst) { orig = decimal($('#md-orig').value); if (!(orig > 0)) return toast('Cargá la profundidad nueva en mm.'); if (prof > orig) return toast('La profundidad medida no puede superar la nueva (' + mm(orig) + ' mm).'); }
+  else if (prof > Number(S.ix.cub[inst.cubierta_id].profundidad_original_mm)) return toast('La profundidad medida supera la del neumático nuevo (' + mm(S.ix.cub[inst.cubierta_id].profundidad_original_mm) + ' mm).');
+  return run(async () => {
+    let cid, iid;
+    if (inst) { cid = inst.cubierta_id; iid = inst.id; }
+    else {
+      const c = must(await sb.from('cubiertas').insert({
+        empresa_id: S.empId, cliente_id: v.cliente_id, serie: $('#md-serie').value.trim() || null, marca: $('#md-marca').value.trim(),
+        modelo: $('#md-modelo').value.trim() || null, medida: $('#md-medida').value.trim(), profundidad_original_mm: orig, fecha_venta: today(), moneda: 'USD'
+      }).select().single());
+      const i = must(await sb.from('instalaciones').insert({
+        empresa_id: S.empId, cubierta_id: c.id, vehiculo_id: v.id, posicion_id: pos.id, fecha_instalacion: today(), km_vehiculo_instalacion: km, instalada_por: S.user.id
+      }).select().single());
+      cid = c.id; iid = i.id;
+    }
+    must(await sb.from('inspecciones').insert({
+      empresa_id: S.empId, cubierta_id: cid, instalacion_id: iid, fecha: today(), km_vehiculo: km, presion_psi: psi, profundidad_mm: prof,
+      observaciones: $('#md-obs').value.trim() || null, estrias: est, balanceo: $('#md-bal').checked, diseno_inadecuado: $('#md-dis').checked, relevamiento_id: r.id, inspector_id: S.user.id
+    }).select('id'));
+    await bumpKm(v, km);
+  }, 'Medición guardada en ' + code);
+}
+
+/* ---------- avisos y panel dentro del relevamiento ---------- */
+function relBanner() {
+  if (!S.relActivo || !isStaff() || S.tab === 'cuant') return '';
+  const r = relOf(S.relActivo); if (!r) return '';
+  const rows = medList(r), cli = S.ix.cli[r.cliente_id];
+  return `<div class="relbanner noprint"><div>Midiendo para <b>${esc(cli ? cli.razon_social : '')}</b> · ${rows.length} neumáticos medidos</div>
+    <div class="row"><button class="btn small" data-act="relmedveh">+ Agregar vehículo</button><button class="btn small primary" data-act="relmedend">Terminar y ver resultado</button></div></div>`;
+}
+function medBox(r) {
+  const rows = medList(r), c = medContar(rows), nveh = new Set(rows.map(x => x.v.id)).size;
+  return `<div class="panel noprint medbox"><div class="label">Mediciones en campo</div>
+    <p style="margin:6px 0 12px">${rows.length ? `<b>${rows.length}</b> neumáticos medidos en <b>${nveh}</b> vehículos · <b>${c.con_problemas}</b> con problemas.` : 'Todavía no se midió ningún neumático. Medí la flota desde el celular y el sistema arma los casos de cada ladrón.'}</p>
+    <div class="row"><button class="btn primary" data-act="relmed" data-r="${r.id}">${rows.length ? 'Seguir midiendo' : 'Medir flota'}</button>${rows.length ? '<button class="btn" data-act="relcalc">Calcular los casos desde las mediciones</button>' : ''}</div></div>`;
+}
+function medAnexo(res) {
+  if (!res || !res.detalle || !res.detalle.length) return '';
+  const nombre = k => (LADRONES.find(l => l[0] === k) || [0, k])[1];
+  const filas = res.detalle.map(d => `<tr><td>${esc(d.v)}</td><td>${esc(d.c)}</td><td>${esc(d.n)}</td><td class="r num">${d.psi ?? '—'} / ${d.rec}</td><td class="r num">${(d.e || []).map(mm).join(' · ')}</td><td>${d.p.map(nombre).join(', ') || '—'}</td><td>${esc(d.o || '')}</td></tr>`).join('');
+  return `<div class="anexo"><div class="label">Anexo: detalle por neumático (${res.detalle.length})</div><div class="tablewrap"><table class="rtab"><thead><tr><th>Vehículo</th><th>Pos.</th><th>Neumático</th><th class="r">psi real / rec.</th><th class="r">Estrías (mm)</th><th>Ladrón de km</th><th>Observaciones</th></tr></thead><tbody>${filas}</tbody></table></div></div>`;
+}
+
+document.addEventListener('submit', e => { if (e.target.dataset && e.target.dataset.form === 'med') saveMed(); });
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const act = a.dataset.act;
+  if (act === 'relmed') { const r = relOf(a.dataset.r); S.relActivo = r.id; S.cli = r.cliente_id; S.q = ''; S.vehId = null; S.tab = 'flota'; render(); window.scrollTo(0, 0); }
+  else if (act === 'relmedveh') { S.prefCli = relOf(S.relActivo).cliente_id; S.tab = 'addveh'; render(); window.scrollTo(0, 0); }
+  else if (act === 'relmedend') { S.relId = S.relActivo; S.relActivo = null; S.vehId = null; S.tab = 'cuant'; render(); window.scrollTo(0, 0); }
+  else if (act === 'relcalc') {
+    const r = relOf(S.relId); if (!r) return;
+    const n = medContar(medList({ ...r, parametros: readRel(r) }));
+    Object.entries(n).forEach(([k, val]) => { const el = $('#rp-' + k); if (el) el.value = val; });
+    liveRel(); toast('Casos calculados desde las mediciones. Revisalos y guardá.');
   }
 });
 
@@ -1545,7 +1726,7 @@ function render() {
   $('#app').innerHTML = `<header class="top"><div class="in"><div class="brand">${LOGO_FULL}</div>
     <div class="who">${emp}<span class="mail">${esc(S.user.email)}</span><button class="btn small out" data-act="logout">Salir</button></div></div></header>
     <div class="tabsbar"><nav class="tabs in" role="tablist">${t.desk.map(x => x[0] === '_g' ? `<span class="tabgroup">${x[1]}</span>` : `<button class="tab" role="tab" aria-selected="${x[0] === cur}" data-tab="${x[0]}">${x[1]}${pillOf(x)}</button>`).join('')}</nav></div>
-    <main>${views[S.tab]()}</main>
+    <main>${relBanner()}${views[S.tab]()}</main>
     <nav class="bottombar">${t.mob.map(x => `<button role="tab" aria-selected="${mobSel(x)}" data-tab="${x[0]}">${ico(x[0])}${x[1]}${pillOf(x)}</button>`).join('')}</nav>`;
   if (S.tab === 'venta') { posList(); }
   if (S.tab === 'addveh') { drawPreview(); }
