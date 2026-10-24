@@ -1320,61 +1320,74 @@ const LADRONES = [
   ['emp', 'Emparejamiento incorrecto', 'Duales con diferencia de diámetro o de profundidad.']
 ];
 const REL_DEF = {
-  veh: '', neum_veh: 18, analizados: '',
+  veh: '', neum_veh: 18, analizados: '', con_problemas: '',
   n_alin: 0, n_bal: 0, n_pres: 0, n_dis: 0, n_emp: 0,
-  x_alin: 10, x_bal: 10, x_pres: 10, x_dis: 40, x_emp: 10,
+  x_alin: 10, x_bal: 10, x_pres: 5, x_dis: 40, x_emp: 10,
   precio_neum: '', precio_litro: '', consumo: '', km_mes: '', vida: 12,
-  alin_grado: '1.5', f_pres: 6, f_alin15: 7, f_alin25: 16
+  f_pres: 6, f_alin15: 7, f_alin25: 16, on_pres: 1, on_a15: 0, on_a25: 0
 };
 const pn = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 const money = n => '$ ' + fmt(n);
+const pct1 = n => (n * 100).toFixed(1).replace('.', ',') + '%';
 
-/* Motor de calculo. Todo el resultado es anual. */
+/* Motor de calculo: replica la planilla "Cuantificador" (hoja Calculos), paso a paso.
+   Los importes corresponden al periodo de vida util del neumatico (por defecto 12 meses). */
 function cuantificar(raw) {
   const p = { ...REL_DEF, ...raw };
-  const veh = pn(p.veh), nv = pn(p.neum_veh), an = pn(p.analizados), vida = pn(p.vida), precio = pn(p.precio_neum);
+  const veh = pn(p.veh), nv = pn(p.neum_veh), an = pn(p.analizados), cp = pn(p.con_problemas), vida = pn(p.vida), precio = pn(p.precio_neum);
   if (!(veh > 0 && nv > 0 && an > 0 && vida > 0 && precio > 0)) return null;
-  const total = veh * nv, ciclos = 12 / vida;
+  const sumaCasos = LADRONES.reduce((s, [k]) => s + pn(p['n_' + k]), 0);                       // J7
   const items = LADRONES.map(([k, nombre]) => {
-    const casos = Math.min(pn(p['n_' + k]), an), prev = casos / an, x = Math.min(0.9, pn(p['x_' + k]) / 100);
-    const afectadas = prev * total;
-    const porNeum = precio * x / (1 - x);            // costo de haber perdido x de la vida: precio/(1-x) - precio
-    return { k, nombre, casos, prev, x, afectadas, porNeum, anual: afectadas * porNeum * ciclos };
+    const casos = pn(p['n_' + k]), x = pn(p['x_' + k]) / 100;
+    return { k, nombre, casos, x, presente: casos > 0, pctCasos: sumaCasos ? casos / sumaCasos : 0 };   // M2:M6, B2:B6
   });
-  const cubiertas = items.reduce((s, i) => s + i.anual, 0);
-  const costoComb = pn(p.precio_litro) * pn(p.consumo) / 100 * pn(p.km_mes) * 12;   // combustible por vehiculo por año
-  const prev = k => items.find(i => i.k === k).prev;
-  const fAlin = pn(p.alin_grado === '2.5' ? p.f_alin25 : p.f_alin15) / 100;
-  const combPres = costoComb * pn(p.f_pres) / 100 * prev('pres') * veh;
-  const combAlin = costoComb * fAlin * prev('alin') * veh;
-  const combustible = combPres + combAlin;
-  const total$ = cubiertas + combustible;
-  const kmAnio = veh * pn(p.km_mes) * 12;
+  const g7 = Math.min(1, cp / an);                                                               // G7: neumaticos con problemas %
+  const presentes = items.filter(i => i.presente);
+  const d24 = presentes.reduce((s, i) => s + i.x, 0);                                           // D24
+  const d25 = presentes.length ? d24 / presentes.length : 0;                                    // D25: promedio de problemas
+  const d28 = (1 + d25) * precio, d29 = d28 - precio;                                           // D28, D29
+  const d30 = d29 * cp, d31 = d30 / (an / nv), d32 = d31 * veh;                                 // D30, D31, D32
+  const g12 = pn(p.consumo) / 100 * pn(p.km_mes) * vida;                                        // G12: litros por vida util
+  const d34 = pn(p.precio_litro) * g12;                                                          // D34
+  const m = k => items.find(i => i.k === k).pctCasos;
+  const dPres = d34 * pn(p.f_pres) / 100 * g7 * m('pres');                                      // D35 - D34
+  const dA15 = d34 * pn(p.f_alin15) / 100 * g7 * m('alin');                                     // D36 - D34
+  const dA25 = d34 * pn(p.f_alin25) / 100 * g7 * m('alin');                                     // D37 - D34
+  const d38 = dPres * (pn(p.on_pres) ? 1 : 0) + dA15 * (pn(p.on_a15) ? 1 : 0) + dA25 * (pn(p.on_a25) ? 1 : 0);
+  const d40 = d38 * veh, d43 = d40 + d32, d45 = d43 / precio;
   return {
-    items, cubiertas, combustible, combPres, combAlin, total: total$,
-    pctCub: total$ ? cubiertas / total$ : 0, pctComb: total$ ? combustible / total$ : 0,
-    mensual: total$ / 12, porVeh: total$ / veh, equivalentes: total$ / precio, porKm: kmAnio ? total$ / kmAnio : null,
-    muestra: an, flota: total, cobertura: an / total, tieneComb: costoComb > 0
+    items, sumaCasos, g7, d25, d28, d29, d30, d31, d32, d34, dPres, dA15, dA25, d38, d40, d43, d45,
+    d46: d45 / vida, mensual: d43 / vida, porVeh: d43 / veh, vida,
+    pctCub: d43 ? d32 / d43 : 0, pctComb: d43 ? d40 / d43 : 0,
+    muestra: an, flota: veh * nv, cobertura: an / (veh * nv), conProblemas: cp, tieneComb: d34 > 0
   };
 }
 
 /* ---------- informe (se usa en pantalla, en el portal y al imprimir) ---------- */
 function informe(r, res, p) {
   if (!res) return '<div class="empty">Completá la flota, los neumáticos relevados y el precio del neumático para ver el resultado.</div>';
-  const cli = S.ix.cli[r.cliente_id] || {}, max = Math.max(...res.items.map(i => i.anual), 1);
-  const bars = res.items.map(i => `<tr><td data-l="Ladrón de km"><b>${esc(i.nombre)}</b><br><span class="muted fine">${fmt(i.casos)} casos (${Math.round(i.prev * 100)}%) · pierde ${Math.round(i.x * 100)}% de la vida</span></td>
-      <td class="r num" data-l="Pérdida anual"><b>${money(i.anual)}</b><div class="mbar"><i style="width:${Math.round(i.anual / max * 100)}%"></i></div></td></tr>`).join('');
-  const comb = res.tieneComb ? `<tr><td data-l="Combustible"><b>Combustible extra</b><br><span class="muted">Presión: ${money(res.combPres)} · Alineación (${esc(p.alin_grado)}°): ${money(res.combAlin)}. Estimado con valores de referencia, no medido.</span></td><td class="r num" data-l="Pérdida anual"><b>${money(res.combustible)}</b></td></tr>` : '';
+  const cli = S.ix.cli[r.cliente_id] || {};
+  const filas = res.items.map(i => `<tr><td data-l="Ladrón de km"><b>${esc(i.nombre)}</b></td>
+      <td class="r num">${fmt(i.casos)}</td><td class="r num">${pct1(i.pctCasos)}</td><td class="r num">${Math.round(i.x * 100)}%</td></tr>`).join('');
+  const linea = (t, v, s) => `<tr${s ? ' class="sub"' : ''}><td>${t}</td><td class="r num">${v}</td></tr>`;
   return `<div class="rep">
     <div class="rep-head"><div><div class="label">Informe de pérdidas por kilómetros perdidos</div><h2>${esc(cli.razon_social || '')}</h2><div class="muted">${esc(r.fecha)}${r.asesor ? ' · Asesor: ' + esc(r.asesor) : ''}</div></div></div>
-    <div class="kpis"><div class="kpi big"><span>Pérdida anual estimada</span><b>${money(res.total)}</b><small>${money(res.mensual)} por mes</small></div>
-      <div class="kpi"><span>Por vehículo</span><b>${money(res.porVeh)}</b><small>al año</small></div>
-      <div class="kpi"><span>Equivale a</span><b>${fmt(res.equivalentes)}</b><small>neumáticos nuevos</small></div>
-      ${res.porKm !== null ? `<div class="kpi"><span>Por kilómetro</span><b>$ ${res.porKm.toFixed(2).replace('.', ',')}</b><small>recorrido</small></div>` : ''}</div>
-    <div class="split"><i style="width:${Math.round(res.pctCub * 100)}%">Cubiertas ${Math.round(res.pctCub * 100)}%</i>${res.pctComb > 0 ? `<i class="b" style="width:${Math.round(res.pctComb * 100)}%">Combustible ${Math.round(res.pctComb * 100)}%</i>` : ''}</div>
-    <div class="tablewrap"><table class="rtab"><thead><tr><th>Ladrón de km</th><th class="r">Pérdida anual</th></tr></thead>
-    <tbody>${bars}<tr class="sub"><td><b>Subtotal cubiertas</b></td><td class="r num"><b>${money(res.cubiertas)}</b></td></tr>${comb}</tbody></table></div>
-    <p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${Math.round(res.cobertura * 100)}%); los casos se proyectan al total. Una cubierta que pierde una fracción x de su vida cuesta precio × x / (1 − x). Importes anuales en pesos a los precios cargados.</p></div>`;
+    <div class="kpis"><div class="kpi big"><span>Pérdida total proyectada a la flota</span><b>${money(res.d43)}</b><small>en ${fmt(res.vida)} meses de vida útil · ${money(res.mensual)} por mes</small></div>
+      <div class="kpi"><span>Por vehículo</span><b>${money(res.porVeh)}</b><small>en el período</small></div>
+      <div class="kpi"><span>Equivale a</span><b>${fmt(res.d45)}</b><small>neumáticos (${res.d46.toFixed(1).replace('.', ',')} por mes)</small></div></div>
+    <div class="split"><i style="width:${Math.round(res.pctCub * 100)}%">Neumáticos ${Math.round(res.pctCub * 100)}%</i>${res.pctComb > 0 ? `<i class="b" style="width:${Math.round(res.pctComb * 100)}%">Combustible ${Math.round(res.pctComb * 100)}%</i>` : ''}</div>
+    <div class="tablewrap"><table class="rtab"><thead><tr><th>5 ladrones de km</th><th class="r">Casos</th><th class="r">% de casos</th><th class="r">Vida perdida</th></tr></thead><tbody>${filas}</tbody></table></div>
+    <div class="tablewrap" style="margin-top:14px"><table class="rtab"><thead><tr><th>Cálculo</th><th class="r">Valor</th></tr></thead><tbody>
+      ${linea('Neumáticos con problemas (' + pct1(res.g7) + ' de los relevados)', fmt(res.conProblemas))}
+      ${linea('Promedio de problemas', pct1(res.d25))}
+      ${linea('Valor que estaría pagando por neumático', money(res.d28))}
+      ${linea('Pérdida por neumático', money(res.d29))}
+      ${linea('Pérdida de neumáticos con problemas', money(res.d30))}
+      ${linea('Pérdida promedio por vehículo', money(res.d31))}
+      ${linea('<b>Pérdida en neumáticos proyectada a la flota</b>', '<b>' + money(res.d32) + '</b>', 1)}
+      ${res.tieneComb ? linea('Consumo de combustible por vehículo (vida útil)', money(res.d34)) + linea('Pérdida de combustible por vehículo', money(res.d38)) + linea('<b>Pérdida de combustible proyectada a la flota</b>', '<b>' + money(res.d40) + '</b>', 1) : ''}
+      ${linea('<b>Total de pérdidas proyectado a la flota</b>', '<b>' + money(res.d43) + '</b>', 1)}</tbody></table></div>
+    <p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${pct1(res.cobertura)}); el resultado se proyecta al total de la flota.${res.tieneComb ? ' El consumo extra de combustible se estima con valores de referencia, no se mide.' : ''} Importes en pesos a los precios cargados.</p></div>`;
 }
 
 /* ---------- pantallas ---------- */
@@ -1386,7 +1399,7 @@ function viewCuant() {
   const rows = list.map(r => { const res = relTotal(r), cli = S.ix.cli[r.cliente_id];
     return `<tr><td data-l="Cliente"><b>${esc(cli ? cli.razon_social : '—')}</b></td><td data-l="Fecha" class="num">${esc(r.fecha)}</td>
       <td data-l="Estado"><span class="pill ${r.estado === 'cerrado' ? 'ok' : 'warn'}">${r.estado === 'cerrado' ? 'Cerrado' : 'Abierto'}</span></td>
-      <td class="r num" data-l="Pérdida anual">${res ? money(res.total) : '—'}</td>
+      <td class="r num" data-l="Pérdida total">${res ? money(res.d43) : '—'}</td>
       <td class="r nolabel"><button class="btn small" data-act="relopen" data-r="${r.id}">Abrir</button></td></tr>`; }).join('');
   const form = staff ? `<form class="panel" data-form="relnew"><div class="label">Relevamiento nuevo</div><div class="form" style="margin-top:10px">
       <div class="field wide"><label for="rn-cli">Cliente</label><select id="rn-cli" required><option value="">Elegir…</option>${S.d.clientes.slice().sort((a, b) => a.razon_social.localeCompare(b.razon_social)).map(c => `<option value="${c.id}">${esc(c.razon_social)}</option>`).join('')}</select></div>
@@ -1394,11 +1407,14 @@ function viewCuant() {
       <div class="field"><label for="rn-asesor">Asesor</label><input id="rn-asesor" autocomplete="off"></div>
       <div class="field wide"><button class="btn primary" type="submit">Crear relevamiento</button></div></div></form>` : '';
   return `<div class="head"><div><div class="label">${esc(empresa().nombre)}</div><h1>${staff ? 'Cuantificador' : 'Informes'}</h1></div></div>
-    <div class="cols"><div class="panel"><div class="tablewrap"><table class="cards"><thead><tr><th>Cliente</th><th>Fecha</th><th>Estado</th><th class="r">Pérdida anual</th><th></th></tr></thead>
+    <div class="cols"><div class="panel"><div class="tablewrap"><table class="cards"><thead><tr><th>Cliente</th><th>Fecha</th><th>Estado</th><th class="r">Pérdida total</th><th></th></tr></thead>
     <tbody>${rows || `<tr><td colspan="5" class="empty">${staff ? 'Todavía no hay relevamientos. Creá el primero con el formulario.' : 'Todavía no hay informes publicados.'}</td></tr>`}</tbody></table></div></div>${form}</div>`;
 }
 function relField(p, k, label, o = {}) {
   return `<div class="field${o.wide ? ' wide' : ''}"><label for="rp-${k}">${label}</label><input id="rp-${k}" data-k="${k}" inputmode="decimal" autocomplete="off" value="${esc(p[k] ?? '')}"${o.ph ? ` placeholder="${o.ph}"` : ''}></div>`;
+}
+function relCheck(p, k, label) {
+  return `<div class="field"><label><input type="checkbox" id="rp-${k}" data-k="${k}"${pn(p[k]) ? ' checked' : ''}> ${label}</label></div>`;
 }
 function viewRel(r) {
   const staff = isStaff(), back = `<button class="btn small" data-act="relback">← Volver</button>`;
@@ -1408,21 +1424,22 @@ function viewRel(r) {
   }
   const p = { ...REL_DEF, ...(r.parametros || {}) };
   const lad = LADRONES.map(([k, n, d]) => `<div class="ladron"><div><b>${n}</b><div class="muted fine">${d}</div></div>
-      ${relField(p, 'n_' + k, 'Neumáticos con el problema')}${relField(p, 'x_' + k, '% de vida perdida')}</div>`).join('');
+      ${relField(p, 'n_' + k, 'Casos encontrados')}${relField(p, 'x_' + k, '% de vida perdida')}</div>`).join('');
   return `<div class="head"><div><div class="label">${esc(S.ix.cli[r.cliente_id]?.razon_social || '')}</div><h1>Relevamiento</h1></div><div class="row noprint">${back}</div></div>
     <div class="cols"><form class="panel" id="relform" data-form="relsave" data-r="${r.id}">
       <div class="label">Datos</div><div class="form" style="margin:10px 0 16px">
         <div class="field"><label for="rp-fecha">Fecha</label><input id="rp-fecha" type="date" value="${esc(r.fecha)}"></div>
         <div class="field"><label for="rp-asesor">Asesor</label><input id="rp-asesor" value="${esc(r.asesor || '')}"></div></div>
       <div class="label">Flota y muestra</div><div class="form" style="margin:10px 0 16px">
-        ${relField(p, 'veh', 'Vehículos de la flota')}${relField(p, 'neum_veh', 'Neumáticos por vehículo')}${relField(p, 'analizados', 'Neumáticos relevados (muestra)', { wide: true })}</div>
+        ${relField(p, 'veh', 'Vehículos de la flota')}${relField(p, 'neum_veh', 'Neumáticos por vehículo')}${relField(p, 'analizados', 'Neumáticos analizados')}${relField(p, 'con_problemas', 'Neumáticos con problemas')}</div>
       <div class="label">Ladrones de km relevados</div><div class="ladrones">${lad}</div>
       <div class="label" style="margin-top:16px">Costos y uso</div><div class="form" style="margin:10px 0 16px">
         ${relField(p, 'precio_neum', 'Precio del neumático ($)')}${relField(p, 'vida', 'Vida útil (meses)')}
         ${relField(p, 'precio_litro', 'Precio del litro ($)')}${relField(p, 'consumo', 'Consumo (l/100 km)')}${relField(p, 'km_mes', 'Km por mes por vehículo', { wide: true })}</div>
       <div class="label">Combustible (valores de referencia)</div><div class="form" style="margin:10px 0 16px">
-        <div class="field"><label for="rp-alin_grado">Desalineación típica</label><select id="rp-alin_grado" data-k="alin_grado"><option value="1.5"${p.alin_grado === '1.5' ? ' selected' : ''}>1,5°</option><option value="2.5"${p.alin_grado === '2.5' ? ' selected' : ''}>2,5°</option></select></div>
-        ${relField(p, 'f_pres', '+% consumo por presión')}${relField(p, 'f_alin15', '+% consumo a 1,5°')}${relField(p, 'f_alin25', '+% consumo a 2,5°')}</div>
+        ${relField(p, 'f_pres', '+% consumo por presión')}${relCheck(p, 'on_pres', 'Incluir presión incorrecta')}
+        ${relField(p, 'f_alin15', '+% consumo por alineación 1,5°')}${relCheck(p, 'on_a15', 'Incluir alineación 1,5°')}
+        ${relField(p, 'f_alin25', '+% consumo por alineación 2,5°')}${relCheck(p, 'on_a25', 'Incluir alineación 2,5°')}</div>
       <div class="field"><label for="rp-notas">Notas del asesor</label><textarea id="rp-notas" rows="3">${esc(r.notas || '')}</textarea></div>
       <div class="row" style="margin-top:14px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" data-act="relclose" data-r="${r.id}">Cerrar y publicar al cliente</button>
         <button class="btn" type="button" data-act="reldel" data-r="${r.id}">${S.delRel === r.id ? 'Confirmar: eliminar' : 'Eliminar'}</button></div></form>
@@ -1432,7 +1449,7 @@ function viewRel(r) {
 /* ---------- acciones ---------- */
 function readRel(r) {
   const p = { ...REL_DEF, ...(r.parametros || {}) };
-  document.querySelectorAll('#relform [data-k]').forEach(el => { p[el.dataset.k] = el.value.trim(); });
+  document.querySelectorAll('#relform [data-k]').forEach(el => { p[el.dataset.k] = el.type === 'checkbox' ? (el.checked ? 1 : 0) : el.value.trim(); });
   return p;
 }
 const relOf = id => S.d.relevamientos.find(x => x.id === id);
