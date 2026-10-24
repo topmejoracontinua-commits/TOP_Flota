@@ -333,6 +333,9 @@ tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
   .firmas i{display:block;border-top:1px solid #111;margin-bottom:6px}.firmas span{color:#555;font-size:12px}
 }
 
+.tabgroup{display:inline-flex;align-items:center;padding:0 10px 0 16px;margin-left:6px;border-left:1px solid var(--line-strong);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+.tabgroup:first-child{border-left:0;margin-left:0;padding-left:0}
+
 </style>
 </head>
 <body>
@@ -1319,7 +1322,8 @@ function viewMas() {
     <div class="panel" style="display:grid;gap:10px">
       <div class="ro">Sesión: <b>${esc(S.user.email)}</b>${staff ? ' · ' + (S.isAdmin ? 'administrador' : 'personal') : ' · cliente'}</div>
       ${S.empresas.length > 1 ? `<div class="field"><label for="emp2">Empresa</label><select id="emp2">${S.empresas.map(e => `<option value="${e.id}"${e.id === S.empId ? ' selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></div>` : ''}
-      <button class="btn" data-tab="scrap">Scrap (cubiertas dadas de baja)</button>${staff ? '' : '<button class="btn" data-tab="cuant">Informes</button>'}${staff ? '<button class="btn" data-tab="cuant">Cuantificador de pérdidas</button><button class="btn" data-tab="stock">Stock de los clientes</button><button class="btn" data-tab="rend">Rendimiento por marca</button><button class="btn" data-tab="equipo">Equipo y accesos</button>' : ''}
+      ${staff ? `<div class="label">Seguimiento de cubiertas</div><button class="btn" data-tab="stock">Stock de los clientes</button><button class="btn" data-tab="scrap">Scrap (cubiertas dadas de baja)</button><button class="btn" data-tab="venta">Nueva venta con seguimiento</button><button class="btn" data-tab="rend">Rendimiento por marca</button>
+        <div class="label" style="margin-top:6px">Administración</div><button class="btn" data-tab="equipo">Equipo y accesos</button>` : '<button class="btn" data-tab="scrap">Scrap (cubiertas dadas de baja)</button><button class="btn" data-tab="cuant">Informes</button>'}
       <button class="btn" data-act="logout">Cerrar sesión</button></div>`;
 }
 
@@ -1513,6 +1517,7 @@ const ICON = {
   alertas: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 21h4"/>',
   clientes: '<circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M16 5.5a3 3 0 0 1 0 5M18 14c2 .7 3 2.3 3 5"/>',
   stock: '<path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8"/>',
+  cuant: '<path d="M5 20V10M12 20V4M19 20v-7"/><path d="M3 20h18"/>',
   mas: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
 };
 const ico = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ''}</svg>`;
@@ -1521,8 +1526,8 @@ function tabsDef() {
   const al = alertList(), n = al.length, bad = al.some(a => a.i.st === 'bad');
   if (S.role === 'staff') {
     return {
-      desk: [['flota', 'Flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['venta', 'Nueva venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['cuant', 'Cuantificador'], ['rend', 'Rendimiento'], ['equipo', 'Equipo']],
-      mob: [['flota', 'Flota'], ['venta', 'Venta'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['mas', 'Más']]
+      desk: [['_g', 'Relevamiento'], ['clientes', 'Clientes'], ['cuant', 'Cuantificador'], ['_g', 'Seguimiento'], ['flota', 'Flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['venta', 'Nueva venta'], ['alertas', 'Alertas', n, bad], ['rend', 'Rendimiento'], ['_g', ''], ['equipo', 'Equipo']],
+      mob: [['cuant', 'Relevamiento'], ['flota', 'Flota'], ['alertas', 'Alertas', n, bad], ['clientes', 'Clientes'], ['mas', 'Más']]
     };
   }
   return { desk: [['flota', 'Mi flota'], ['stock', 'Stock'], ['scrap', 'Scrap'], ['alertas', 'Alertas', n, bad], ['cuant', 'Informes']], mob: [['flota', 'Mi flota'], ['stock', 'Stock'], ['alertas', 'Alertas', n, bad], ['mas', 'Más']] };
@@ -1536,10 +1541,10 @@ function render() {
     ? `<select id="emp" aria-label="Empresa">${S.empresas.map(e => `<option value="${e.id}"${e.id === S.empId ? ' selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select>`
     : `<span>${esc(empresa().nombre)}</span>`;
   const pillOf = x => (x[2] ? `<span class="pill ${x[3] ? 'bad' : 'warn'}">${x[2]}</span>` : '');
-  const mobSel = x => x[0] === (S.tab === 'addveh' ? 'flota' : S.tab) || (x[0] === 'mas' && ['rend', 'equipo', 'scrap', 'cuant'].includes(S.tab));
+  const mobSel = x => x[0] === (S.tab === 'addveh' ? 'flota' : S.tab) || (x[0] === 'mas' && ['rend', 'equipo', 'scrap', 'venta', 'stock'].includes(S.tab));
   $('#app').innerHTML = `<header class="top"><div class="in"><div class="brand">${LOGO_FULL}</div>
     <div class="who">${emp}<span class="mail">${esc(S.user.email)}</span><button class="btn small out" data-act="logout">Salir</button></div></div></header>
-    <div class="tabsbar"><nav class="tabs in" role="tablist">${t.desk.map(x => `<button class="tab" role="tab" aria-selected="${x[0] === cur}" data-tab="${x[0]}">${x[1]}${pillOf(x)}</button>`).join('')}</nav></div>
+    <div class="tabsbar"><nav class="tabs in" role="tablist">${t.desk.map(x => x[0] === '_g' ? `<span class="tabgroup">${x[1]}</span>` : `<button class="tab" role="tab" aria-selected="${x[0] === cur}" data-tab="${x[0]}">${x[1]}${pillOf(x)}</button>`).join('')}</nav></div>
     <main>${views[S.tab]()}</main>
     <nav class="bottombar">${t.mob.map(x => `<button role="tab" aria-selected="${mobSel(x)}" data-tab="${x[0]}">${ico(x[0])}${x[1]}${pillOf(x)}</button>`).join('')}</nav>`;
   if (S.tab === 'venta') { posList(); }
