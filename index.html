@@ -323,6 +323,7 @@ tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
 .cmpbox{margin-top:18px}.cmp.good{color:var(--ok);font-weight:700}.cmp.worse{color:var(--bad);font-weight:700}
 .relbanner{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--head);color:var(--head-ink);border-radius:10px;padding:10px 14px;margin-bottom:14px;border-bottom:3px solid var(--accent)}
 .medres{margin-top:10px;display:grid;gap:4px}.medbox{margin-bottom:0}.anexo{margin-top:18px}
+.rep-print{display:none}
 @media print{
   @page{size:A4;margin:14mm}
   :root:root:root:root{--bg:#fff;--surface:#fff;--surface-2:#f3f3f4;--line:#d9d9de;--line-strong:#bbb;--ink:#111;--ink-2:#333;--ink-3:#555;--head:#0c0c0d;--head-ink:#fff;color-scheme:light}
@@ -330,6 +331,7 @@ tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
   header.top,.tabsbar,.bottombar,.noprint,#toast,.head,.muted.noprint{display:none!important}
   body{background:#fff}main{padding:0;max-width:none}.cols{display:block}
   .panel{border:0;box-shadow:none;padding:0;background:#fff}
+  .rep-screen{display:none!important}.rep-print{display:block}
   .printhead{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid var(--accent);padding-bottom:10px;margin-bottom:16px}
   .printhead .lock{height:34px;width:auto;color:#111}.ph-r{text-align:right;font-size:12px;color:#333}
   .rep tr,.kpi,.split,.repnotas,.cmpbox{break-inside:avoid}.relbanner{display:none!important}.cmp.good{color:#15803d}.cmp.worse{color:#b91c1c}
@@ -340,6 +342,22 @@ tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
 .tabgroup{display:inline-flex;align-items:center;padding:0 10px 0 16px;margin-left:6px;border-left:1px solid var(--line-strong);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
 .tabgroup:first-child{border-left:0;margin-left:0;padding-left:0}
 .relbanner .btn:not(.primary){background:transparent;color:#fff;border-color:#555}
+
+@media print{
+  .ptitle{font-size:20px;margin:6px 0 12px;font-family:var(--f-display)}
+  .pdatos{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:12px;margin-bottom:12px}
+  .pd{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:3px 0}.pd span{color:#555}
+  .pblock{margin-top:12px;break-inside:avoid}.pb-t{font-weight:700;font-size:13px;margin-bottom:4px;text-decoration:underline}
+  .pblock ul{margin:0;padding-left:18px;font-size:12px;line-height:1.5}.pblock ul.fund{list-style:none;padding-left:8px;columns:2}.fund li b{margin-right:2px}
+  .pgrp{border-left:3px solid var(--accent);padding-left:10px;margin:8px 0}.pgrp-l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:3px}
+  .pl{display:flex;justify-content:space-between;gap:14px;font-size:12px;padding:2px 0}.pl.box b{border:1px solid #111;padding:1px 8px}
+  .ptotal{display:flex;justify-content:space-between;align-items:center;margin-top:10px;background:#0c0c0d;color:#fff;border-radius:6px;padding:8px 12px;font-size:15px}.ptotal b{font-size:22px;color:#fff}
+  .pnota{text-align:right;font-size:11px;color:#555;margin-top:3px}
+  .pies{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:14px;break-inside:avoid}
+  .pie{border:1px solid var(--line);border-radius:8px;padding:8px 12px;width:46%;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;font-size:11px}.pie-t{grid-column:1/-1;font-weight:700;font-size:12px}
+  .pie ul{list-style:none;margin:0;padding:0}.pie li{display:flex;align-items:center;gap:6px;margin:2px 0}.pie li i{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none}
+  .pbreak{break-after:page}
+}
 
 </style>
 </head>
@@ -1342,12 +1360,12 @@ const LADRONES = [
   ['emp', 'Emparejamiento incorrecto', 'Duales con diferencia de diámetro o de profundidad.']
 ];
 const REL_DEF = {
-  veh: '', neum_veh: 18, analizados: '', con_problemas: '',
+  destinatario: '', servicio: '', veh: '', neum_veh: 18, analizados: '', con_problemas: '',
   n_alin: 0, n_bal: 0, n_pres: 0, n_dis: 0, n_emp: 0,
   x_alin: 10, x_bal: 10, x_pres: 5, x_dis: 40, x_emp: 10,
   precio_neum: '', precio_litro: '', consumo: '', km_mes: '', vida: 12,
   f_pres: 6, f_alin15: 7, f_alin25: 16, on_pres: 1, on_a15: 0, on_a25: 0,
-  psi_dir: 120, psi_trac: 110, psi_semi: 110, tol_psi: 10, umb_alin: 2, umb_emp: 3
+  psi_dir: 120, psi_trac: 110, psi_semi: 110, tol_psi: 10, umb_alin: 2, umb_emp: 3, umb_prof: 4
 };
 const pn = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 const money = n => '$ ' + fmt(n);
@@ -1413,22 +1431,23 @@ function comparar(r, res) {
 }
 
 /* ---------- informe (se usa en pantalla, en el portal y al imprimir) ---------- */
-function informe(r, res, p) {
-  if (!res) return '<div class="empty">Completá la flota, los neumáticos relevados y el precio del neumático para ver el resultado.</div>';
-  const cli = S.ix.cli[r.cliente_id] || {};
-  const filas = res.items.map(i => `<tr><td data-l="Ladrón de km"><b>${esc(i.nombre)}</b></td>
-      <td class="r num">${fmt(i.casos)}</td><td class="r num">${pct1(i.pctCasos)}</td><td class="r num">${Math.round(i.x * 100)}%</td></tr>`).join('');
+const PIE_COLORS = ['#d71920', '#1f2937', '#f59e0b', '#6b7280', '#0ea5e9'];
+function pie(titulo, partes) {
+  const tot = partes.reduce((s, x) => s + x.v, 0);
+  if (!(tot > 0)) return '';
+  let ang = -Math.PI / 2, paths = '';
+  partes.filter(x => x.v > 0).forEach((x, i, arr) => {
+    const f = x.v / tot, a2 = ang + f * 2 * Math.PI, col = x.c;
+    if (arr.length === 1) paths += `<circle cx="60" cy="60" r="54" fill="${col}"/>`;
+    else paths += `<path d="M60 60 L${(60 + 54 * Math.cos(ang)).toFixed(2)} ${(60 + 54 * Math.sin(ang)).toFixed(2)} A54 54 0 ${f > 0.5 ? 1 : 0} 1 ${(60 + 54 * Math.cos(a2)).toFixed(2)} ${(60 + 54 * Math.sin(a2)).toFixed(2)} Z" fill="${col}" stroke="#fff" stroke-width="1.5"/>`;
+    ang = a2;
+  });
+  const leg = partes.map(x => `<li><i style="background:${x.c}"></i>${esc(x.l)} <b>${Math.round(x.v / tot * 100)}%</b></li>`).join('');
+  return `<div class="pie"><div class="pie-t">${esc(titulo)}</div><svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">${paths}</svg><ul>${leg}</ul></div>`;
+}
+const calcRows = (res) => {
   const linea = (t, v, s) => `<tr${s ? ' class="sub"' : ''}><td>${t}</td><td class="r num">${v}</td></tr>`;
-  return `<div class="rep">
-    <div class="printhead">${LOGO_FULL}<div class="ph-r"><b>${esc(empresa().nombre || 'TOP Neumáticos')}</b><br>Asistencia técnica a flotas</div></div>
-    <div class="rep-head"><div><div class="label">Informe de pérdidas por kilómetros perdidos</div><h2>${esc(cli.razon_social || '')}</h2><div class="muted">${esc(r.fecha)}${r.asesor ? ' · Asesor: ' + esc(r.asesor) : ''}</div></div></div>
-    <div class="kpis"><div class="kpi big"><span>Pérdida total proyectada a la flota</span><b>${money(res.d43)}</b><small>en ${fmt(res.vida)} meses de vida útil · ${money(res.mensual)} por mes</small></div>
-      <div class="kpi"><span>Por vehículo</span><b>${money(res.porVeh)}</b><small>en el período</small></div>
-      <div class="kpi"><span>Equivale a</span><b>${fmt(res.d45)}</b><small>neumáticos (${res.d46.toFixed(1).replace('.', ',')} por mes)</small></div></div>
-    <div class="split" role="img" aria-label="Reparto de la pérdida entre neumáticos y combustible"><i style="width:${(res.pctCub * 100).toFixed(2)}%"></i>${res.pctComb > 0 ? `<i class="b" style="width:${(res.pctComb * 100).toFixed(2)}%"></i>` : ''}</div>
-    <div class="splitleg"><span><i class="k"></i>Neumáticos <b>${pct1(res.pctCub)}</b> · ${money(res.d32)}</span>${res.pctComb > 0 ? `<span><i class="k b"></i>Combustible <b>${pct1(res.pctComb)}</b> · ${money(res.d40)}</span>` : ''}</div>
-    <div class="tablewrap"><table class="rtab"><thead><tr><th>5 ladrones de km</th><th class="r">Casos</th><th class="r">% de casos</th><th class="r">Vida perdida</th></tr></thead><tbody>${filas}</tbody></table></div>
-    <div class="tablewrap" style="margin-top:14px"><table class="rtab"><thead><tr><th>Cálculo</th><th class="r">Valor</th></tr></thead><tbody>
+  return `<div class="tablewrap"><table class="rtab"><thead><tr><th>Cálculo</th><th class="r">Valor</th></tr></thead><tbody>
       ${linea('Neumáticos con problemas (' + pct1(res.g7) + ' de los relevados)', fmt(res.conProblemas))}
       ${linea('Promedio de problemas', pct1(res.d25))}
       ${linea('Valor que estaría pagando por neumático', money(res.d28))}
@@ -1437,12 +1456,80 @@ function informe(r, res, p) {
       ${linea('Pérdida promedio por vehículo', money(res.d31))}
       ${linea('<b>Pérdida en neumáticos proyectada a la flota</b>', '<b>' + money(res.d32) + '</b>', 1)}
       ${res.tieneComb ? linea('Consumo de combustible por vehículo (vida útil)', money(res.d34)) + linea('Pérdida de combustible por vehículo', money(res.d38)) + linea('<b>Pérdida de combustible proyectada a la flota</b>', '<b>' + money(res.d40) + '</b>', 1) : ''}
-      ${linea('<b>Total de pérdidas proyectado a la flota</b>', '<b>' + money(res.d43) + '</b>', 1)}</tbody></table></div>
-    <p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${pct1(res.cobertura)}); el resultado se proyecta al total de la flota.${res.tieneComb ? ' El consumo extra de combustible se estima con valores de referencia, no se mide.' : ''} Importes en pesos a los precios cargados.</p>
+      ${linea('<b>Total de pérdidas proyectado a la flota</b>', '<b>' + money(res.d43) + '</b>', 1)}</tbody></table></div>`;
+};
+const ladronesRows = (res) => `<div class="tablewrap"><table class="rtab"><thead><tr><th>5 ladrones de km</th><th class="r">Casos</th><th class="r">% de casos</th><th class="r">Vida perdida</th></tr></thead><tbody>${res.items.map(i => `<tr><td><b>${esc(i.nombre)}</b></td>
+      <td class="r num">${fmt(i.casos)}</td><td class="r num">${pct1(i.pctCasos)}</td><td class="r num">${Math.round(i.x * 100)}%</td></tr>`).join('')}</tbody></table></div>`;
+const pieNota = (res) => `<p class="muted fine">Base: ${fmt(res.muestra)} neumáticos relevados de ${fmt(res.flota)} de la flota (${pct1(res.cobertura)}); el resultado se proyecta al total de la flota.${res.tieneComb ? ' El consumo extra de combustible se estima con valores de referencia, no se mide.' : ''} Importes en pesos a los precios cargados.</p>`;
+
+/* Documento para imprimir / PDF: sigue la hoja "Presentación" de la planilla original */
+function presentacion(r, res, p) {
+  const cli = S.ix.cli[r.cliente_id] || {}, q = { ...REL_DEF, ...p };
+  const dato = (k, v) => `<div class="pd"><span>${k}</span><b>${v}</b></div>`;
+  const g = res.graf;
+  const pies = [
+    pie('Análisis', [{ v: res.conProblemas, c: PIE_COLORS[0], l: 'Con desviaciones' }, { v: Math.max(0, res.muestra - res.conProblemas), c: PIE_COLORS[3], l: 'Sin desviaciones' }]),
+    pie('Casos encontrados', res.items.map((i, n) => ({ v: i.casos, c: PIE_COLORS[n], l: i.nombre })))
+  ].join('');
+  const pies2 = g ? [
+    pie('Control de presión', [{ v: g.psiBaja, c: PIE_COLORS[0], l: 'Presión baja' }, { v: g.psiAlta, c: PIE_COLORS[2], l: 'Presión alta' }]),
+    pie('Profundidad de estrías', [{ v: g.profBajo, c: PIE_COLORS[0], l: 'Menos de ' + mm(g.umbProf) + ' mm' }, { v: g.profOk, c: PIE_COLORS[3], l: mm(g.umbProf) + ' mm o más' }]),
+    pie('Distribución de posiciones', [{ v: g.trac, c: PIE_COLORS[1], l: 'Tracción' }, { v: g.dir, c: PIE_COLORS[2], l: 'Direccionales' }, { v: g.semi, c: PIE_COLORS[3], l: 'Semi / acoplado' }])
+  ].join('') : '';
+  return `<div class="rep-print">
+    <div class="printhead">${LOGO_FULL}<div class="ph-r"><b>${esc(empresa().nombre || 'TOP Neumáticos')}</b><br>Asistencia técnica a flotas</div></div>
+    <h1 class="ptitle">TOP Flota · Asistencia Técnica a Flotas</h1>
+    <div class="pdatos">
+      ${q.destinatario ? dato('A:', esc(q.destinatario)) : ''}${dato('Empresa:', esc(cli.razon_social || ''))}
+      ${dato('Fecha:', esc(r.fecha))}${r.asesor ? dato('Asesor:', esc(r.asesor)) : ''}
+      ${dato('Composición de flota:', fmt(pn(q.veh)) + ' vehículos')}${q.servicio ? dato('Servicio:', esc(q.servicio)) : ''}
+      ${pn(q.km_mes) ? dato('Km promedio por mes:', fmt(pn(q.km_mes))) : ''}${dato('Neumáticos analizados:', fmt(res.muestra))}
+      ${dato('Neumáticos con diferencias:', fmt(res.conProblemas))}${pn(q.precio_litro) ? dato('Precio referencia de combustible:', money(pn(q.precio_litro))) : ''}
+      ${dato('Precio referencia de neumático:', money(pn(q.precio_neum)))}</div>
+    <div class="pblock"><div class="pb-t">Teniendo en cuenta</div><ul>
+      <li>Que hay un aumento de consumo de combustible del ${fmt(pn(q.f_pres))}% al 10% por presión incorrecta.</li>
+      <li>Que el consumo de combustible aumenta por alineación incorrecta de 1,5° de desviación aproximadamente un ${fmt(pn(q.f_alin15))}% y con 2,5° un ${fmt(pn(q.f_alin25))}% más de combustible.</li>
+      <li>Que un 20% menos de presión representa una pérdida de rendimiento del 15% en la vida útil del neumático.</li></ul></div>
+    <div class="pblock"><div class="pb-t">Fundamentos base</div><ul class="fund">${LADRONES.map(l => `<li><b>${l[1].charAt(0)}</b>${esc(l[1].slice(1))}</li>`).join('')}</ul></div>
+    <div class="pblock"><div class="pb-t">Se puede estimar que:</div>
+      <div class="pgrp"><div class="pgrp-l">Factor neumáticos</div>
+        <div class="pl"><span>Promedio de problemas según los 5 ladrones de km</span><b>${pct1(res.d25)}</b></div>
+        <div class="pl"><span>Por pérdidas encontradas, precio estimado del neumático que estaría pagando</span><b>${money(res.d28)}</b></div>
+        <div class="pl box"><span>Pérdidas por problemas proyectados en la flota</span><b>${money(res.d32)}</b></div></div>
+      ${res.tieneComb ? `<div class="pgrp"><div class="pgrp-l">Factor combustible</div>
+        <div class="pl"><span>Consumo promedio por vehículo según vida útil del neumático</span><b>${money(res.d34)}</b></div>
+        <div class="pl"><span>Pérdida de consumo por desviación encontrada por vehículo</span><b>${money(res.d38)}</b></div>
+        <div class="pl box"><span>Pérdida de consumo por desviación proyectada a la flota</span><b>${money(res.d40)}</b></div></div>` : ''}
+      <div class="ptotal"><span>Totales</span><b>${money(res.d43)}</b></div>
+      <div class="pnota">en ${fmt(res.vida)} meses de vida útil · ${money(res.mensual)} por mes · equivale a ${fmt(res.d45)} neumáticos</div></div>
+    <div class="pies">${pies}</div>
+    <div class="pbreak"></div>
+    ${pies2 ? `<div class="pies">${pies2}</div>` : ''}
+    ${ladronesRows(res)}
+    <div style="margin-top:12px">${calcRows(res)}</div>
+    ${pieNota(res)}
     ${comparar(r, res)}
     ${medAnexo(res)}
     ${r.notas ? `<div class="repnotas"><div class="label">Observaciones del asesor</div><p>${esc(r.notas)}</p></div>` : ''}
     <div class="firmas"><div><i></i>Asesor TOP Neumáticos<br><span>${esc(r.asesor || '')}</span></div><div><i></i>Por ${esc(cli.razon_social || 'el cliente')}<br><span>Firma, aclaración y cargo</span></div></div></div>`;
+}
+
+function informe(r, res, p) {
+  if (!res) return '<div class="empty">Completá la flota, los neumáticos relevados y el precio del neumático para ver el resultado.</div>';
+  const cli = S.ix.cli[r.cliente_id] || {};
+  return `<div class="rep rep-screen">
+    <div class="rep-head"><div><div class="label">Informe de pérdidas por kilómetros perdidos</div><h2>${esc(cli.razon_social || '')}</h2><div class="muted">${esc(r.fecha)}${r.asesor ? ' · Asesor: ' + esc(r.asesor) : ''}</div></div></div>
+    <div class="kpis"><div class="kpi big"><span>Pérdida total proyectada a la flota</span><b>${money(res.d43)}</b><small>en ${fmt(res.vida)} meses de vida útil · ${money(res.mensual)} por mes</small></div>
+      <div class="kpi"><span>Por vehículo</span><b>${money(res.porVeh)}</b><small>en el período</small></div>
+      <div class="kpi"><span>Equivale a</span><b>${fmt(res.d45)}</b><small>neumáticos (${res.d46.toFixed(1).replace('.', ',')} por mes)</small></div></div>
+    <div class="split" role="img" aria-label="Reparto de la pérdida entre neumáticos y combustible"><i style="width:${(res.pctCub * 100).toFixed(2)}%"></i>${res.pctComb > 0 ? `<i class="b" style="width:${(res.pctComb * 100).toFixed(2)}%"></i>` : ''}</div>
+    <div class="splitleg"><span><i class="k"></i>Neumáticos <b>${pct1(res.pctCub)}</b> · ${money(res.d32)}</span>${res.pctComb > 0 ? `<span><i class="k b"></i>Combustible <b>${pct1(res.pctComb)}</b> · ${money(res.d40)}</span>` : ''}</div>
+    ${ladronesRows(res)}
+    <div style="margin-top:14px">${calcRows(res)}</div>
+    ${pieNota(res)}
+    ${comparar(r, res)}
+    ${medAnexo(res)}
+    ${r.notas ? `<div class="repnotas"><div class="label">Observaciones del asesor</div><p>${esc(r.notas)}</p></div>` : ''}</div>${presentacion(r, res, p)}`;
 }
 
 /* ---------- pantallas ---------- */
@@ -1485,7 +1572,8 @@ function viewRel(r) {
     <div class="cols" style="margin-top:16px"><form class="panel noprint" id="relform" data-form="relsave" data-r="${r.id}">
       <div class="label">Datos</div><div class="form" style="margin:10px 0 16px">
         <div class="field"><label for="rp-fecha">Fecha</label><input id="rp-fecha" type="date" value="${esc(r.fecha)}"></div>
-        <div class="field"><label for="rp-asesor">Asesor</label><input id="rp-asesor" value="${esc(r.asesor || '')}"></div></div>
+        <div class="field"><label for="rp-asesor">Asesor</label><input id="rp-asesor" value="${esc(r.asesor || '')}"></div>
+        ${relField(p, 'destinatario', 'Dirigido a (contacto del cliente)')}${relField(p, 'servicio', 'Servicio del cliente (ej. transporte de combustible)')}</div>
       <div class="label">Flota y muestra</div><div class="form" style="margin:10px 0 16px">
         ${relField(p, 'veh', 'Vehículos de la flota')}${relField(p, 'neum_veh', 'Neumáticos por vehículo')}${relField(p, 'analizados', 'Neumáticos analizados')}${relField(p, 'con_problemas', 'Neumáticos con problemas')}</div>
       <div class="label">Ladrones de km relevados</div><div class="ladrones">${lad}</div>
@@ -1499,7 +1587,7 @@ function viewRel(r) {
       <div class="label">Criterios de medición (valores típicos, editables)</div><div class="form" style="margin:10px 0 16px">
         ${relField(p, 'psi_dir', 'Presión recomendada: direccional (psi)')}${relField(p, 'psi_trac', 'Presión recomendada: tracción (psi)')}
         ${relField(p, 'psi_semi', 'Presión recomendada: semi / acoplado (psi)')}${relField(p, 'tol_psi', 'Tolerancia de presión (±%)')}
-        ${relField(p, 'umb_alin', 'Alineación: diferencia entre hombros (mm)')}${relField(p, 'umb_emp', 'Duales: diferencia entre gemelas (mm)')}</div>
+        ${relField(p, 'umb_alin', 'Alineación: diferencia entre hombros (mm)')}${relField(p, 'umb_emp', 'Duales: diferencia entre gemelas (mm)')}${relField(p, 'umb_prof', 'Profundidad baja: menos de (mm)')}</div>
       <div class="field"><label for="rp-notas">Notas del asesor</label><textarea id="rp-notas" rows="3">${esc(r.notas || '')}</textarea></div>
       <div class="row" style="margin-top:14px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" data-act="relclose" data-r="${r.id}">Cerrar y publicar al cliente</button>
         <button class="btn" type="button" data-act="reldel" data-r="${r.id}">${S.delRel === r.id ? 'Confirmar: eliminar' : 'Eliminar'}</button></div></form>
@@ -1513,7 +1601,7 @@ function readRel(r) {
   return p;
 }
 const relOf = id => S.d.relevamientos.find(x => x.id === id);
-function resultadoRel(r, p) { const res = cuantificar(p); if (res) res.detalle = medDetalle(medList({ ...r, parametros: p })); return res; }
+function resultadoRel(r, p) { const res = cuantificar(p); if (res) { const rows = medList({ ...r, parametros: p }); res.detalle = medDetalle(rows); res.graf = medGraf(rows, p); } return res; }
 function liveRel() {
   const f = $('#relform'); if (!f) return;
   const r = relOf(f.dataset.r), p = readRel(r), box = $('#relres');
@@ -1553,7 +1641,7 @@ document.addEventListener('click', e => {
 });
 
 /* TOP Flota - mediciones en campo: el asesor mide neumático por neumático y el sistema arma los casos de cada ladrón de km */
-const MED_DEF = { psi_dir: 120, psi_trac: 110, psi_semi: 110, tol_psi: 10, umb_alin: 2, umb_emp: 3 };
+const MED_DEF = { psi_dir: 120, psi_trac: 110, psi_semi: 110, tol_psi: 10, umb_alin: 2, umb_emp: 3, umb_prof: 4 };
 const medP = r => ({ ...MED_DEF, ...REL_DEF, ...(r.parametros || {}) });
 const ejeTipo = (v, code) => {
   if (!hasCab(v)) return 'semi';
@@ -1578,7 +1666,7 @@ function medList(r) {
     if (est.length >= 2 && Math.abs(est[0] - est[est.length - 1]) >= pn(p.umb_alin)) pr.push('alin');
     if (i.balanceo) pr.push('bal');
     if (i.diseno_inadecuado) pr.push('dis');
-    rows.push({ obs: i.observaciones || '', v, c, code: pos.codigo, psi, rec, est, depth, pr, dual: /^\d[ID][EI]$/.test(pos.codigo), at: i.creado_en || i.fecha });
+    rows.push({ eje: ejeTipo(v, pos.codigo), baja: psi !== null && psi < rec, obs: i.observaciones || '', v, c, code: pos.codigo, psi, rec, est, depth, pr, dual: /^\d[ID][EI]$/.test(pos.codigo), at: i.creado_en || i.fecha });
   });
   const key = (v, code) => v.id + '|' + code;
   const byKey = {}; rows.forEach(x => { byKey[key(x.v, x.code)] = x; });
@@ -1588,6 +1676,15 @@ function medList(r) {
     if (o && Math.abs(x.depth - o.depth) >= pn(p.umb_emp) && !x.pr.includes('emp')) x.pr.push('emp');
   });
   return rows.sort((a, b) => (a.v.patente + a.code < b.v.patente + b.code ? -1 : 1));
+}
+function medGraf(rows, p) {
+  if (!rows.length) return null;
+  const q = { ...MED_DEF, ...p }, u = pn(q.umb_prof) || 4;
+  return {
+    umbProf: u, profBajo: rows.filter(x => x.depth < u).length, profOk: rows.filter(x => x.depth >= u).length,
+    psiBaja: rows.filter(x => x.pr.includes('pres') && x.baja).length, psiAlta: rows.filter(x => x.pr.includes('pres') && !x.baja).length,
+    dir: rows.filter(x => x.eje === 'dir').length, trac: rows.filter(x => x.eje === 'trac').length, semi: rows.filter(x => x.eje === 'semi').length
+  };
 }
 function medContar(rows) {
   const n = { analizados: rows.length, con_problemas: rows.filter(x => x.pr.length).length };
