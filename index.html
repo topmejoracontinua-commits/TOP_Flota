@@ -313,7 +313,8 @@ details.more > summary { cursor: pointer; color: var(--ink-2); font-weight: 600;
 .kpi b{display:block;font-size:22px;margin-top:2px}.kpi small{color:var(--ink-3)}
 .kpi.big{grid-column:1/-1;background:var(--head);color:var(--head-ink);border-color:var(--head)}.kpi.big span,.kpi.big small{color:#bbb}.kpi.big b{font-size:34px}
 .split{display:flex;height:28px;border-radius:8px;overflow:hidden;margin-bottom:14px;background:var(--line)}
-.split i{display:flex;align-items:center;padding:0 10px;font-style:normal;font-size:12px;color:#fff;background:var(--accent);white-space:nowrap;overflow:hidden}.split i.b{background:#3a3a41}
+.split{height:14px}.split i{display:block;min-width:3px;background:var(--accent)}.split i.b{background:var(--ink-3)}
+.splitleg{display:flex;gap:18px;flex-wrap:wrap;margin:-6px 0 14px;font-size:13px}.splitleg span{display:inline-flex;align-items:center;gap:6px}.splitleg i.k{width:10px;height:10px;border-radius:2px;background:var(--accent);display:inline-block}.splitleg i.k.b{background:var(--ink-3)}
 .mbar{height:5px;border-radius:3px;background:var(--line);margin-top:4px}.mbar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
 tr.sub td{background:var(--surface-2)}.fine{font-size:12px}
 
@@ -1424,7 +1425,8 @@ function informe(r, res, p) {
     <div class="kpis"><div class="kpi big"><span>Pérdida total proyectada a la flota</span><b>${money(res.d43)}</b><small>en ${fmt(res.vida)} meses de vida útil · ${money(res.mensual)} por mes</small></div>
       <div class="kpi"><span>Por vehículo</span><b>${money(res.porVeh)}</b><small>en el período</small></div>
       <div class="kpi"><span>Equivale a</span><b>${fmt(res.d45)}</b><small>neumáticos (${res.d46.toFixed(1).replace('.', ',')} por mes)</small></div></div>
-    <div class="split"><i style="width:${Math.round(res.pctCub * 100)}%">Neumáticos ${Math.round(res.pctCub * 100)}%</i>${res.pctComb > 0 ? `<i class="b" style="width:${Math.round(res.pctComb * 100)}%">Combustible ${Math.round(res.pctComb * 100)}%</i>` : ''}</div>
+    <div class="split" role="img" aria-label="Reparto de la pérdida entre neumáticos y combustible"><i style="width:${(res.pctCub * 100).toFixed(2)}%"></i>${res.pctComb > 0 ? `<i class="b" style="width:${(res.pctComb * 100).toFixed(2)}%"></i>` : ''}</div>
+    <div class="splitleg"><span><i class="k"></i>Neumáticos <b>${pct1(res.pctCub)}</b> · ${money(res.d32)}</span>${res.pctComb > 0 ? `<span><i class="k b"></i>Combustible <b>${pct1(res.pctComb)}</b> · ${money(res.d40)}</span>` : ''}</div>
     <div class="tablewrap"><table class="rtab"><thead><tr><th>5 ladrones de km</th><th class="r">Casos</th><th class="r">% de casos</th><th class="r">Vida perdida</th></tr></thead><tbody>${filas}</tbody></table></div>
     <div class="tablewrap" style="margin-top:14px"><table class="rtab"><thead><tr><th>Cálculo</th><th class="r">Valor</th></tr></thead><tbody>
       ${linea('Neumáticos con problemas (' + pct1(res.g7) + ' de los relevados)', fmt(res.conProblemas))}
